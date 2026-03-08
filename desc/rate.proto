@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package rate;
+
+option go_package = "./rate";
+
+// --- 获取汇率 ---
+message GetRateReq {
+  string from = 1;  // 源货币，如 "USD"
+  string to   = 2;  // 目标货币，如 "CNY"
+}
+message GetRateResp {
+  string from       = 1;
+  string to         = 2;
+  double rate       = 3;  // 汇率值，如 7.2534
+  int64  updated_at = 4;  // 最后更新时间戳 (Unix)
+}
+
+// --- 获取支持的货币列表 ---
+message GetSupportedCurrenciesReq {}
+message GetSupportedCurrenciesResp {
+  repeated string currencies = 1;
+}
+
+service Rate {
+  rpc GetRate(GetRateReq) returns(GetRateResp);
+  rpc GetSupportedCurrencies(GetSupportedCurrenciesReq) returns(GetSupportedCurrenciesResp);
+}

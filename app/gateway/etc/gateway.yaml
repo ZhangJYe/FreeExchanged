@@ -1,0 +1,66 @@
+Name: gateway
+Host: 0.0.0.0
+Port: 8888
+
+# --- 限流配置 ---
+# 自适应限流：CPU 超过 90% 时自动丢弃部分请求 (返回 429)
+CpuThreshold: 900
+# 并发限流：最大并发连接数，超过返回 503
+# 演示时可改为 100 来观察限流效果
+MaxConns: 10000
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
+Telemetry:
+  Name: gateway
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+# --- Auth 配置 (与 User 服务保持一致) ---
+Identity:
+  AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
+  AccessExpire: 86400
+
+# --- User RPC Client ---
+UserRpc:
+  Endpoints:
+    - 127.0.0.1:8080  # User RPC 服务监听的端口
+  NonBlock: true
+
+InteractionRpc:
+  Endpoints:
+    - 127.0.0.1:8081
+  NonBlock: true
+
+RankingRpc:
+  Endpoints:
+    - 127.0.0.1:8082
+  NonBlock: true
+
+RateRpc:
+  Endpoints:
+    - 127.0.0.1:8083
+  NonBlock: true
+
+ArticleRpc:
+  Endpoints:
+    - 127.0.0.1:8084
+  NonBlock: true
+
+WatchlistRpc:
+  Endpoints:
+    - 127.0.0.1:8085
+  NonBlock: true
+
+# --- Redis 配置 (与 User 服务公用同一个 Redis) ---
+Redis:
+  Host: 127.0.0.1:6380
+  Type: node
+
+Log:
+  Mode: console

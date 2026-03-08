@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package favorite;
+
+option go_package = "./favorite";
+
+message PingReq {}
+message PingResp {
+  string message = 1;
+}
+
+service Favorite {
+  rpc Ping(PingReq) returns(PingResp);
+}

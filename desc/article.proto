@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package article;
+option go_package = "./article";
+
+// --- Model Definition ---
+message ArticleInfo {
+  int64 id = 1;
+  string title = 2;
+  string content = 3;
+  int64 author_id = 4;
+  int64 status = 5;
+  int64 like_count = 6;
+  int64 view_count = 7;
+  int64 create_time = 8;
+  int64 update_time = 9;
+}
+
+// --- Request/Response ---
+message PublishReq {
+  string title = 1;
+  string content = 2;
+  int64 author_id = 3;
+}
+message PublishResp {
+  int64 article_id = 1;
+}
+
+message GetArticleReq {
+  int64 id = 1;
+}
+message GetArticleResp {
+  ArticleInfo article = 1;
+}
+
+message ListArticlesReq {
+  int64 author_id = 1;  // 可选，0表示查所有
+  int32 page = 2;
+  int32 page_size = 3;
+}
+message ListArticlesResp {
+  repeated ArticleInfo articles = 1;
+}
+
+service Article {
+  rpc Publish(PublishReq) returns(PublishResp);
+  rpc GetArticle(GetArticleReq) returns(GetArticleResp);
+  rpc ListArticles(ListArticlesReq) returns(ListArticlesResp);
+}

@@ -1,0 +1,55 @@
+package main
+
+import (
+	"context" // Added import
+	"flag"
+	"fmt"
+
+	"freeexchanged/app/ranking/cmd/rpc/internal/config"
+	"freeexchanged/app/ranking/cmd/rpc/internal/mq"
+	"freeexchanged/app/ranking/cmd/rpc/internal/server"
+	"freeexchanged/app/ranking/cmd/rpc/internal/svc"
+	"freeexchanged/app/ranking/cmd/rpc/pb"
+
+	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx" // Added import
+	"github.com/zeromicro/go-zero/core/service"
+	"github.com/zeromicro/go-zero/zrpc"
+	"github.com/zeromicro/zero-contrib/zrpc/registry/consul"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+)
+
+var configFile = flag.String("f", "etc/ranking.yaml", "the config file")
+
+func main() {
+	flag.Parse()
+
+	var c config.Config
+	conf.MustLoad(*configFile, &c)
+	ctx := svc.NewServiceContext(c)
+
+	// 启动 RabbitMQ Consumer
+	consumer := mq.NewArticleConsumer(context.Background(), ctx)
+	if consumer != nil {
+		consumer.Start()
+		logx.Info("RabbitMQ Consumer started")
+	}
+
+	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
+		pb.RegisterRankingServer(grpcServer, server.NewRankingServer(ctx))
+
+		if c.Mode == service.DevMode || c.Mode == service.TestMode {
+			reflection.Register(grpcServer)
+		}
+	})
+	defer s.Stop()
+
+	// 注册到 Consul
+	if err := consul.RegisterService(c.ListenOn, c.Consul); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
+	s.Start()
+}

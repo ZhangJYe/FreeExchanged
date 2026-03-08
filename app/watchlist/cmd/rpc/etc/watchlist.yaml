@@ -1,0 +1,32 @@
+Name: watchlist.rpc
+ListenOn: 0.0.0.0:8085
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9097
+  Path: /metrics
+
+Telemetry:
+  Name: watchlist-rpc
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+Consul:
+  Host: 127.0.0.1:8500
+  Key: watchlist.rpc
+
+DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+BizRedis:
+  Host: 127.0.0.1:6380
+  Type: node
+
+RateRpc:
+  Endpoints:
+    - 127.0.0.1:8083
+  NonBlock: true
+
+Log:
+  Mode: console

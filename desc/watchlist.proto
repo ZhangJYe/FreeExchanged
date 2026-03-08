@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package watchlist;
+option go_package = "./watchlist";
+
+message WatchItem {
+  string currency_pair = 1;
+  double rate          = 2;
+  int64  updated_at    = 3;
+}
+
+message AddWatchReq {
+  int64  user_id       = 1;
+  string currency_pair = 2;
+}
+message AddWatchResp {}
+
+message RemoveWatchReq {
+  int64  user_id       = 1;
+  string currency_pair = 2;
+}
+message RemoveWatchResp {}
+
+message GetWatchlistReq {
+  int64 user_id = 1;
+}
+message GetWatchlistResp {
+  repeated WatchItem items = 1;
+}
+
+service Watchlist {
+  rpc AddWatch    (AddWatchReq)     returns (AddWatchResp);
+  rpc RemoveWatch (RemoveWatchReq)  returns (RemoveWatchResp);
+  rpc GetWatchlist(GetWatchlistReq) returns (GetWatchlistResp);
+}

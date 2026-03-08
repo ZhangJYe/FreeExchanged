@@ -1,0 +1,28 @@
+Name: article.rpc
+ListenOn: 0.0.0.0:8084
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9096
+  Path: /metrics
+
+Telemetry:
+  Name: article-rpc
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+Consul:
+  Host: 127.0.0.1:8500
+  Key: article.rpc
+
+# 注意：本地开发用 3307，密码 root
+DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+# 注意：本地开发用 5673 (映射端口)
+RabbitMQ:
+  Host: 127.0.0.1
+  Port: 5673
+  Username: guest
+  Password: guest

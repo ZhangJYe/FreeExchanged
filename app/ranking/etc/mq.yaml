@@ -1,0 +1,5 @@
+Name: ranking.mq
+# KqConf:
+#   Brokers:
+#   - localhost:9092
+#   Topic: ranking-events

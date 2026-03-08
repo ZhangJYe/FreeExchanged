@@ -1,0 +1,11 @@
+.idea/
+.vscode/
+*.log
+vendor/
+bin/
+tools/
+*.exe
+*.test
+
+# MySQL data directory
+data/mysql/

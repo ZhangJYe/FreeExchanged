@@ -1,0 +1,31 @@
+Name: ranking.rpc
+ListenOn: 0.0.0.0:8082
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9094
+  Path: /metrics
+
+Telemetry:
+  Name: ranking-rpc
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+Consul:
+  Host: 127.0.0.1:8500
+  Key: ranking.rpc
+  Tag: [rpc]
+
+BizRedis:
+  Host: 127.0.0.1:6380
+  Type: node
+
+RabbitMQ:
+  Host: 127.0.0.1
+  Port: 5673
+  Username: guest
+  Password: guest
+  VHost: /
+

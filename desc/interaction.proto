@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package interaction;
+option go_package = "./pb";
+
+message LikeReq {
+  int64 user_id = 1;
+  int64 article_id = 2;
+}
+message LikeResp {}
+
+message UnlikeReq {
+  int64 user_id = 1;
+  int64 article_id = 2;
+}
+message UnlikeResp {}
+
+message ReadReq {
+  int64 user_id = 1;
+  int64 article_id = 2;
+}
+message ReadResp {}
+
+service Interaction {
+  rpc Like(LikeReq) returns(LikeResp);
+  rpc Unlike(UnlikeReq) returns(UnlikeResp);
+  rpc Read(ReadReq) returns(ReadResp);
+}

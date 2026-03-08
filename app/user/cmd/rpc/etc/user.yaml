@@ -1,0 +1,33 @@
+Name: user.rpc
+ListenOn: 0.0.0.0:8080
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9092
+  Path: /metrics
+
+Telemetry:
+  Name: user-rpc
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+# --- Consul 配置 ---
+Consul:
+  Host: 127.0.0.1:8500 # 对应 docker-compose 的 consul 端口
+  Key: user.rpc        # 服务注册的 Key
+  Tag: [rpc]           # 标签
+
+# --- MySQL 配置 (3307) ---
+DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+# --- Redis 配置 (6380) ---
+BizRedis:
+  Host: 127.0.0.1:6380
+  Type: node
+
+# --- Auth 配置 ---
+Identity:
+  AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
+  AccessExpire: 86400                            # 86400 = 24 小时

@@ -1,0 +1,29 @@
+Name: interaction.rpc
+ListenOn: 0.0.0.0:8081
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9093
+  Path: /metrics
+
+Telemetry:
+  Name: interaction-rpc
+  Endpoint: localhost:4318
+  Sampler: 1.0
+  Batcher: otlphttp
+  OtlpHttpPath: /v1/traces
+
+# --- Consul 配置 (替换 Etcd) ---
+Consul:
+  Host: 127.0.0.1:8500
+  Key: interaction.rpc
+  Tag: [rpc]
+
+# --- RabbitMQ 配置 ---
+RabbitMQ:
+  Host: 127.0.0.1
+  Port: 5673    # 映射到宿主机的端口 (docker内部5672)
+  Username: guest
+  Password: guest
+  VHost: /
+

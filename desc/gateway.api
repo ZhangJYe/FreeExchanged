@@ -1,0 +1,210 @@
+syntax = "v1"
+
+info (
+	title:   "FreeExchanged Gateway API"
+	desc:    "Public API Gateway with Authentication"
+	author:  "zhangjinye"
+	version: "v1"
+)
+
+type (
+	// --- Common Types ---
+	PingReq  {}
+	PingResp {
+		Msg string `json:"msg"`
+	}
+	// --- User Module Types ---
+	LoginReq {
+		Mobile   string `json:"mobile"`
+		Password string `json:"password"`
+	}
+	LoginResp {
+		Id       int64  `json:"id"`
+		Nickname string `json:"nickname"`
+		Token    string `json:"token"`
+		ExpireAt int64  `json:"expire_at"`
+	}
+	LogoutReq  {} // 不需要参数，直接从 Header 取 Token
+	LogoutResp  {}
+	RegisterReq {
+		Mobile   string `json:"mobile"`
+		Password string `json:"password"`
+		Nickname string `json:"nickname"`
+	}
+	RegisterResp {
+		Id       int64  `json:"id"`
+		Token    string `json:"token"`
+		ExpireAt int64  `json:"expire_at"`
+	}
+	UserInfoReq  {}
+	UserInfoResp {
+		Id       int64  `json:"id"`
+		Mobile   string `json:"mobile"`
+		Nickname string `json:"nickname"`
+	}
+	// --- Interaction Module Types ---
+	LikeReq {
+		ArticleId int64 `json:"article_id"`
+		Action    int   `json:"action,optional"` // 1:点赞 2:取消点赞 (默认1)
+	}
+	LikeResp  {}
+	// --- Ranking Module Types ---
+	GetTopReq {
+		N int32 `form:"n,default=10"`
+	}
+	RankItem {
+		ArticleId int64  `json:"article_id"`
+		Score     int64  `json:"score"`
+		Title     string `json:"title"`
+	}
+	GetTopResp {
+		Items []RankItem `json:"items"`
+	}
+	// --- Rate Module Types ---
+	GetRateReq {
+		From string `form:"from"`
+		To   string `form:"to"`
+	}
+	GetRateResp {
+		From      string  `json:"from"`
+		To        string  `json:"to"`
+		Rate      float64 `json:"rate"`
+		UpdatedAt int64   `json:"updated_at"`
+	}
+	GetCurrenciesReq  {}
+	GetCurrenciesResp {
+		Currencies []string `json:"currencies"`
+	}
+	// --- Article Module Types ---
+	PublishArticleReq {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	PublishArticleResp {
+		ArticleId int64 `json:"article_id"`
+	}
+)
+
+// --- Public Routes (No Auth) ---
+@server (
+	prefix: v1/user
+	group:  user
+)
+service gateway {
+	@doc "用户登录"
+	@handler Login
+	post /login (LoginReq) returns (LoginResp)
+
+	@doc "用户注册"
+	@handler Register
+	post /register (RegisterReq) returns (RegisterResp)
+}
+
+// --- Protected Routes (With Auth Middleware) ---
+@server (
+	prefix:     v1/user
+	group:      user
+	middleware: PasetoMiddleware // 这一行告诉 goctl 要用中间件
+)
+service gateway {
+	@doc "获取用户信息 (需要鉴权)"
+	@handler UserInfo
+	get /info (UserInfoReq) returns (UserInfoResp)
+
+	@doc "健康检查 (需要鉴权)"
+	@handler Ping
+	get /ping (PingReq) returns (PingResp)
+
+	@doc "用户注销 (需要鉴权)"
+	@handler Logout
+	post /logout (LogoutReq) returns (LogoutResp)
+}
+
+// --- Interaction Module ---
+@server (
+	group:      interaction
+	middleware: PasetoMiddleware,RateLimitMiddleware
+	prefix:     v1/article
+)
+service gateway {
+	@doc "点赞/取消点赞"
+	@handler Like
+	post /like (LikeReq) returns (LikeResp)
+}
+
+// --- Ranking Module ---
+@server (
+	group:  ranking
+	prefix: v1/ranking
+)
+service gateway {
+	@doc "获取热榜"
+	@handler GetTop
+	get /top (GetTopReq) returns (GetTopResp)
+}
+
+// --- Rate Module ---
+@server (
+	group:  rate
+	prefix: v1/rate
+)
+service gateway {
+	@doc "获取汇率（公开接口，无需鉴权）"
+	@handler GetRate
+	get / (GetRateReq) returns (GetRateResp)
+
+	@doc "获取支持的货币列表"
+	@handler GetCurrencies
+	get /currencies (GetCurrenciesReq) returns (GetCurrenciesResp)
+}
+
+@server (
+	group:      article
+	prefix:     v1/article
+	middleware: PasetoMiddleware
+)
+service gateway {
+	@doc "Publish new article"
+	@handler Publish
+	post /publish (PublishArticleReq) returns (PublishArticleResp)
+}
+
+// ======== Watchlist Module ========
+type (
+	AddWatchReq {
+		CurrencyPair string `json:"currency_pair"`
+	}
+	AddWatchResp  {}
+	RemoveWatchReq {
+		CurrencyPair string `json:"currency_pair"`
+	}
+	RemoveWatchResp  {}
+	WatchItem {
+		CurrencyPair string  `json:"currency_pair"`
+		Rate         float64 `json:"rate"`
+		UpdatedAt    int64   `json:"updated_at"`
+	}
+	GetWatchlistResp {
+		Items []WatchItem `json:"items"`
+	}
+)
+
+@server (
+	group:      watchlist
+	prefix:     v1/watchlist
+	middleware: PasetoMiddleware
+)
+service gateway {
+	@doc "Add currency pair to watchlist"
+	@handler AddWatch
+	post /add (AddWatchReq) returns (AddWatchResp)
+
+	@doc "Remove currency pair from watchlist"
+	@handler RemoveWatch
+	post /remove (RemoveWatchReq) returns (RemoveWatchResp)
+
+	@doc "Get watchlist with real-time rates"
+	@handler GetWatchlist
+	get /list returns (GetWatchlistResp)
+}
+
