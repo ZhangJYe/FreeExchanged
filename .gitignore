@@ -9,3 +9,6 @@ tools/
 
 # MySQL data directory
 data/mysql/
+
+# Markdown documentation
+*.md
