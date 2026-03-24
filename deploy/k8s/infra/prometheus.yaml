@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: freeexchanged
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 10s
+
+    scrape_configs:
+      - job_name: 'gateway'
+        static_configs:
+          - targets: ['gateway-svc:9091']
+
+      - job_name: 'user-rpc'
+        static_configs:
+          - targets: ['user-rpc-svc:9092']
+
+      - job_name: 'interaction-rpc'
+        static_configs:
+          - targets: ['interaction-rpc-svc:9093']
+
+      - job_name: 'ranking-rpc'
+        static_configs:
+          - targets: ['ranking-rpc-svc:9094']
+
+      - job_name: 'rate-rpc'
+        static_configs:
+          - targets: ['rate-rpc-svc:9095']
+
+      - job_name: 'article-rpc'
+        static_configs:
+          - targets: ['article-rpc-svc:9096']
+
+      - job_name: 'watchlist-rpc'
+        static_configs:
+          - targets: ['watchlist-rpc-svc:9097']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: freeexchanged
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus
+        args:
+          - "--config.file=/etc/prometheus/prometheus.yml"
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090

@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-rpc-config
+  namespace: freeexchanged
+data:
+  user.yaml: |
+    Name: user.rpc
+    ListenOn: 0.0.0.0:8080
+
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9092
+      Path: /metrics
+
+    Telemetry:
+      Name: user-rpc
+      Endpoint: jaeger-svc:4318
+      Sampler: 1.0
+      Batcher: otlphttp
+      OtlpHttpPath: /v1/traces
+
+    DataSource: root:root@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+
+    Identity:
+      AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
+      AccessExpire: 86400
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-rpc
+  namespace: freeexchanged
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-rpc
+  template:
+    metadata:
+      labels:
+        app: user-rpc
+    spec:
+      containers:
+      - name: user-rpc
+        image: freeexchanged/user-rpc:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 8080
+        - name: metrics
+          containerPort: 9092
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: user-rpc-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-rpc-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: user-rpc
+  ports:
+  - name: grpc
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    port: 9092
+    targetPort: 9092

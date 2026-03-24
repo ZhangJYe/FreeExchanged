@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rate-job-config
+  namespace: freeexchanged
+data:
+  job.yaml: |
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rate-job
+  namespace: freeexchanged
+spec:
+  replicas: 1  # 只跑一个实例，避免重复拉取
+  selector:
+    matchLabels:
+      app: rate-job
+  template:
+    metadata:
+      labels:
+        app: rate-job
+    spec:
+      containers:
+      - name: rate-job
+        image: freeexchanged/rate-job:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: rate-job-config

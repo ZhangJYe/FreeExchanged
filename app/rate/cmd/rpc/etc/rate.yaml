@@ -13,11 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-# Consul 服务注册
-Consul:
-  Host: 127.0.0.1:8500
-  Key: rate.rpc
-
 # Redis 配置（读取汇率缓存）
 BizRedis:
   Host: 127.0.0.1:6380

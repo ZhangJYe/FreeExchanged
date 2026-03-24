@@ -13,12 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-# --- Consul 配置 ---
-Consul:
-  Host: 127.0.0.1:8500 # 对应 docker-compose 的 consul 端口
-  Key: user.rpc        # 服务注册的 Key
-  Tag: [rpc]           # 标签
-
 # --- MySQL 配置 (3307) ---
 DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 

@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: watchlist-rpc-config
+  namespace: freeexchanged
+data:
+  watchlist.yaml: |
+    Name: watchlist.rpc
+    ListenOn: 0.0.0.0:8085
+
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9097
+      Path: /metrics
+
+    Telemetry:
+      Name: watchlist-rpc
+      Endpoint: jaeger-svc:4318
+      Sampler: 1.0
+      Batcher: otlphttp
+      OtlpHttpPath: /v1/traces
+
+    DataSource: root:root@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+
+    RateRpc:
+      Endpoints:
+        - rate-rpc-svc:8083
+      NonBlock: true
+
+    Log:
+      Mode: console
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watchlist-rpc
+  namespace: freeexchanged
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: watchlist-rpc
+  template:
+    metadata:
+      labels:
+        app: watchlist-rpc
+    spec:
+      containers:
+      - name: watchlist-rpc
+        image: freeexchanged/watchlist-rpc:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 8085
+        - name: metrics
+          containerPort: 9097
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: watchlist-rpc-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: watchlist-rpc-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: watchlist-rpc
+  ports:
+  - name: grpc
+    port: 8085
+    targetPort: 8085
+  - name: metrics
+    port: 9097
+    targetPort: 9097

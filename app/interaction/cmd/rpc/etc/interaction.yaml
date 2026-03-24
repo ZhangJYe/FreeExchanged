@@ -13,12 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-# --- Consul 配置 (替换 Etcd) ---
-Consul:
-  Host: 127.0.0.1:8500
-  Key: interaction.rpc
-  Tag: [rpc]
-
 # --- RabbitMQ 配置 ---
 RabbitMQ:
   Host: 127.0.0.1

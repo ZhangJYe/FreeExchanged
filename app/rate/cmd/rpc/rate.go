@@ -12,7 +12,6 @@ import (
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
-	consul "github.com/zeromicro/zero-contrib/zrpc/registry/consul"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -34,11 +33,6 @@ func main() {
 		}
 	})
 	defer s.Stop()
-
-	// 注册到 Consul
-	if err := consul.RegisterService(c.ListenOn, c.Consul); err != nil {
-		panic(fmt.Sprintf("consul register failed: %v", err))
-	}
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
 	s.Start()

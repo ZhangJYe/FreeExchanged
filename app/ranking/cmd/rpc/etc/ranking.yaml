@@ -13,11 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-Consul:
-  Host: 127.0.0.1:8500
-  Key: ranking.rpc
-  Tag: [rpc]
-
 BizRedis:
   Host: 127.0.0.1:6380
   Type: node

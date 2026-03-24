@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: article-rpc-config
+  namespace: freeexchanged
+data:
+  article.yaml: |
+    Name: article.rpc
+    ListenOn: 0.0.0.0:8084
+
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9096
+      Path: /metrics
+
+    Telemetry:
+      Name: article-rpc
+      Endpoint: jaeger-svc:4318
+      Sampler: 1.0
+      Batcher: otlphttp
+      OtlpHttpPath: /v1/traces
+
+    DataSource: root:root@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+    RabbitMQ:
+      Host: rabbitmq-svc
+      Port: 5672
+      Username: guest
+      Password: guest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: article-rpc
+  namespace: freeexchanged
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: article-rpc
+  template:
+    metadata:
+      labels:
+        app: article-rpc
+    spec:
+      containers:
+      - name: article-rpc
+        image: freeexchanged/article-rpc:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 8084
+        - name: metrics
+          containerPort: 9096
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: article-rpc-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: article-rpc-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: article-rpc
+  ports:
+  - name: grpc
+    port: 8084
+    targetPort: 8084
+  - name: metrics
+    port: 9096
+    targetPort: 9096

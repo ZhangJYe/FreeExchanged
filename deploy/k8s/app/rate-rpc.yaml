@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rate-rpc-config
+  namespace: freeexchanged
+data:
+  rate.yaml: |
+    Name: rate.rpc
+    ListenOn: 0.0.0.0:8083
+
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9095
+      Path: /metrics
+
+    Telemetry:
+      Name: rate-rpc
+      Endpoint: jaeger-svc:4318
+      Sampler: 1.0
+      Batcher: otlphttp
+      OtlpHttpPath: /v1/traces
+
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rate-rpc
+  namespace: freeexchanged
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rate-rpc
+  template:
+    metadata:
+      labels:
+        app: rate-rpc
+    spec:
+      containers:
+      - name: rate-rpc
+        image: freeexchanged/rate-rpc:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: grpc
+          containerPort: 8083
+        - name: metrics
+          containerPort: 9095
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: rate-rpc-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rate-rpc-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: rate-rpc
+  ports:
+  - name: grpc
+    port: 8083
+    targetPort: 8083
+  - name: metrics
+    port: 9095
+    targetPort: 9095

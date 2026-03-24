@@ -13,10 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-Consul:
-  Host: 127.0.0.1:8500
-  Key: watchlist.rpc
-
 DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 
 BizRedis:
