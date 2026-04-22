@@ -5,44 +5,49 @@ metadata:
   namespace: freeexchanged
 data:
   job.yaml: |
+    RunOnce: true
     BizRedis:
       Host: redis-svc:6379
       Type: node
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: rate-job
   namespace: freeexchanged
 spec:
-  revisionHistoryLimit: 3
-  replicas: 1  # 只跑一个实例，避免重复拉取
-  selector:
-    matchLabels:
-      app: rate-job
-  template:
-    metadata:
-      labels:
-        app: rate-job
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 120
+  jobTemplate:
     spec:
-      containers:
-      - name: rate-job
-        image: freeexchanged/rate-job:latest
-        imagePullPolicy: IfNotPresent
-        envFrom:
-        - secretRef:
-            name: freeexchanged-secrets
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 250m
-            memory: 256Mi
-        volumeMounts:
-        - name: config
-          mountPath: /app/etc
-      volumes:
-      - name: config
-        configMap:
-          name: rate-job-config
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: rate-job
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: rate-job
+            image: freeexchanged/rate-job:latest
+            imagePullPolicy: IfNotPresent
+            envFrom:
+            - secretRef:
+                name: freeexchanged-secrets
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 250m
+                memory: 256Mi
+            volumeMounts:
+            - name: config
+              mountPath: /app/etc
+          volumes:
+          - name: config
+            configMap:
+              name: rate-job-config

@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
-# 一键部署脚本：按依赖顺序部署所有资源
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAMESPACE="freeexchanged"
 
-echo "==> [1/3] 创建 Namespace"
+echo "==> [1/4] Apply namespace"
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
 
-echo "==> [2/3] 部署基础设施（MySQL/Redis/RabbitMQ/Jaeger/Prometheus/Grafana）"
+echo "==> [2/4] Apply infrastructure"
 kubectl apply -f "$SCRIPT_DIR/infra/"
 
-echo "==> 等待 MySQL 和 Redis 就绪..."
-kubectl rollout status statefulset/mysql -n freeexchanged --timeout=120s
-kubectl rollout status deployment/redis   -n freeexchanged --timeout=60s
-kubectl rollout status deployment/rabbitmq -n freeexchanged --timeout=90s
+echo "==> Waiting for infrastructure readiness"
+kubectl rollout status statefulset/mysql -n "$NAMESPACE" --timeout=180s
+kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/rabbitmq -n "$NAMESPACE" --timeout=120s
 
-echo "==> [3/3] 部署应用层（RPC 服务 + Gateway）"
-# 先启 rate-job 和 rpc 服务，最后启 gateway
+echo "==> [3/4] Run database migration"
+kubectl delete job/db-migration -n "$NAMESPACE" --ignore-not-found
+kubectl apply -f "$SCRIPT_DIR/app/db-migration-job.yaml"
+kubectl wait --for=condition=complete job/db-migration -n "$NAMESPACE" --timeout=180s
+
+echo "==> [4/4] Deploy application workloads"
 kubectl apply -f "$SCRIPT_DIR/app/rate-job.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/rate-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/user-rpc.yaml"
@@ -26,11 +30,17 @@ kubectl apply -f "$SCRIPT_DIR/app/article-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/watchlist-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/gateway.yaml"
 
-echo "==> 等待 Gateway 就绪..."
-kubectl rollout status deployment/gateway -n freeexchanged --timeout=120s
+echo "==> Waiting for application readiness"
+kubectl rollout status deployment/rate-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/user-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/interaction-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/ranking-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/article-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/watchlist-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/gateway -n "$NAMESPACE" --timeout=120s
 
 echo ""
-echo "部署完成！"
-echo "Gateway ClusterIP: $(kubectl get svc gateway-svc -n freeexchanged -o jsonpath='{.spec.clusterIP}'):8888"
-echo "Grafana:           kubectl port-forward svc/grafana-svc 3000:3000 -n freeexchanged"
-echo "Jaeger UI:         kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged"
+echo "Deployment completed."
+echo "Gateway ClusterIP: $(kubectl get svc gateway-svc -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}'):8888"
+echo "Grafana:           kubectl port-forward svc/grafana-svc 3000:3000 -n $NAMESPACE"
+echo "Jaeger UI:         kubectl port-forward svc/jaeger-svc 16686:16686 -n $NAMESPACE"

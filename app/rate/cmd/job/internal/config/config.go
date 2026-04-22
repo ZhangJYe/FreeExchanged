@@ -4,4 +4,5 @@ import "github.com/zeromicro/go-zero/core/stores/redis"
 
 type Config struct {
 	BizRedis redis.RedisConf
+	RunOnce  bool `json:",optional"`
 }

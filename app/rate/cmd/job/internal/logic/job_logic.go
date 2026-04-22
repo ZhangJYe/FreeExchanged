@@ -44,6 +44,10 @@ func Run(c config.Config) {
 
 	// 启动时立刻执行一次，不等第一个 tick
 	fetchAll(rds, client)
+	if c.RunOnce {
+		logx.Info("[RateJob] run once completed")
+		return
+	}
 
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()

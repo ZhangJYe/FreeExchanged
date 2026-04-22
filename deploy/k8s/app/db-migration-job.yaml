@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  namespace: freeexchanged
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: db-migration
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mysql-client
+        image: mysql:8.0
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
+        command:
+        - sh
+        - -ec
+        - |
+          until mysqladmin ping -hmysql-svc -uroot -p"$MYSQL_ROOT_PASSWORD" --silent; do
+            sleep 2
+          done
+          mysql -hmysql-svc -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" < /schema/init.sql
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        volumeMounts:
+        - name: schema
+          mountPath: /schema
+      volumes:
+      - name: schema
+        configMap:
+          name: mysql-init-sql
