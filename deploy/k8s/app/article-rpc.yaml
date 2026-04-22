@@ -34,7 +34,13 @@ metadata:
   name: article-rpc
   namespace: freeexchanged
 spec:
+  revisionHistoryLimit: 3
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: article-rpc
@@ -55,6 +61,23 @@ spec:
           containerPort: 8084
         - name: metrics
           containerPort: 9096
+        readinessProbe:
+          tcpSocket:
+            port: grpc
+          initialDelaySeconds: 8
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: grpc
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         volumeMounts:
         - name: config
           mountPath: /app/etc

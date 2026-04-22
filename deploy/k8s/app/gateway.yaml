@@ -71,7 +71,13 @@ metadata:
   name: gateway
   namespace: freeexchanged
 spec:
+  revisionHistoryLimit: 3
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: gateway
@@ -101,6 +107,18 @@ spec:
             port: 8888
           initialDelaySeconds: 10
           periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
       volumes:
       - name: config
         configMap:

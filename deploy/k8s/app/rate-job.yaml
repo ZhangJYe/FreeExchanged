@@ -15,6 +15,7 @@ metadata:
   name: rate-job
   namespace: freeexchanged
 spec:
+  revisionHistoryLimit: 3
   replicas: 1  # 只跑一个实例，避免重复拉取
   selector:
     matchLabels:
@@ -31,6 +32,13 @@ spec:
         envFrom:
         - secretRef:
             name: freeexchanged-secrets
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
         volumeMounts:
         - name: config
           mountPath: /app/etc

@@ -102,6 +102,18 @@ spec:
             command: ["sh", "-c", "mysqladmin ping -uroot -p$MYSQL_ROOT_PASSWORD"]
           initialDelaySeconds: 10
           periodSeconds: 5
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "mysqladmin ping -uroot -p$MYSQL_ROOT_PASSWORD"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
       volumes:
       - name: mysql-data
         persistentVolumeClaim:
