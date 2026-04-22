@@ -29,10 +29,14 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 
 	// Start Kafka consumers for ranking events.
-	consumer := mq.NewArticleConsumer(context.Background(), ctx)
-	if consumer != nil {
-		consumer.Start()
-		logx.Info("Kafka consumer started")
+	if c.ConsumerEnabled {
+		consumer := mq.NewArticleConsumer(context.Background(), ctx)
+		if consumer != nil {
+			consumer.Start()
+			logx.Info("Kafka consumer started")
+		}
+	} else {
+		logx.Info("Kafka consumer disabled by config")
 	}
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {

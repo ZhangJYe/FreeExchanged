@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+  namespace: freeexchanged
+spec:
+  selector:
+    app: flink-ranking
+    component: jobmanager
+  ports:
+  - name: rpc
+    port: 6123
+    targetPort: 6123
+  - name: blob
+    port: 6124
+    targetPort: 6124
+  - name: ui
+    port: 8081
+    targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-ranking-jobmanager
+  namespace: freeexchanged
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink-ranking
+      component: jobmanager
+  template:
+    metadata:
+      labels:
+        app: flink-ranking
+        component: jobmanager
+    spec:
+      containers:
+      - name: jobmanager
+        image: freeexchanged/flink-ranking-job:latest
+        imagePullPolicy: IfNotPresent
+        args: ["standalone-job", "--job-classname", "com.freeexchanged.analytics.RankingJob"]
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka-svc:9092
+        - name: KAFKA_GROUP_ID
+          value: flink-ranking-consumer
+        - name: REDIS_HOST
+          value: redis-svc
+        - name: REDIS_PORT
+          value: "6379"
+        - name: RANKING_REDIS_KEY
+          value: ranking:hot:flink
+        - name: FLINK_PROPERTIES
+          value: |
+            jobmanager.rpc.address: flink-jobmanager
+            parallelism.default: 1
+            taskmanager.numberOfTaskSlots: 2
+        ports:
+        - name: rpc
+          containerPort: 6123
+        - name: blob
+          containerPort: 6124
+        - name: ui
+          containerPort: 8081
+        readinessProbe:
+          httpGet:
+            path: /
+            port: ui
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: ui
+          initialDelaySeconds: 60
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-ranking-taskmanager
+  namespace: freeexchanged
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink-ranking
+      component: taskmanager
+  template:
+    metadata:
+      labels:
+        app: flink-ranking
+        component: taskmanager
+    spec:
+      containers:
+      - name: taskmanager
+        image: freeexchanged/flink-ranking-job:latest
+        imagePullPolicy: IfNotPresent
+        args: ["taskmanager"]
+        env:
+        - name: FLINK_PROPERTIES
+          value: |
+            jobmanager.rpc.address: flink-jobmanager
+            parallelism.default: 1
+            taskmanager.numberOfTaskSlots: 2
+        ports:
+        - name: data
+          containerPort: 6121
+        - name: rpc
+          containerPort: 6122
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
