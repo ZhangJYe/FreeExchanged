@@ -5,14 +5,14 @@ This directory contains the Kubernetes manifests for the FreeExchanged backend s
 ## Components
 
 - `namespace.yaml`: creates the `freeexchanged` namespace.
-- `infra/`: MySQL, Redis, RabbitMQ, Jaeger, Prometheus, Grafana, and runtime secrets.
+- `infra/`: MySQL, Redis, Kafka, Jaeger, Prometheus, Grafana, and runtime secrets.
 - `app/`: gateway, RPC services, the exchange-rate CronJob, and the database migration Job.
 - `deploy.sh`: applies resources in dependency order.
 
 ## Deployment Order
 
 1. Apply namespace.
-2. Apply infrastructure and wait for MySQL, Redis, and RabbitMQ.
+2. Apply infrastructure and wait for MySQL, Kafka, Redis, and Kafka topic initialization.
 3. Run `db-migration` to apply the schema from `infra/mysql.yaml`.
 4. Deploy application workloads and wait for all Deployments.
 
@@ -43,11 +43,6 @@ Required keys:
 - `MYSQL_ROOT_PASSWORD`
 - `MYSQL_DATABASE`
 - `MYSQL_DSN`
-- `RABBITMQ_DEFAULT_USER`
-- `RABBITMQ_DEFAULT_PASS`
-- `RABBITMQ_USERNAME`
-- `RABBITMQ_PASSWORD`
-- `RABBITMQ_VHOST`
 - `PASETO_ACCESS_SECRET`
 - `GRAFANA_ADMIN_PASSWORD`
 
@@ -80,6 +75,7 @@ kubectl wait --for=condition=complete job/db-migration -n freeexchanged --timeou
 kubectl get pods -n freeexchanged
 kubectl get svc -n freeexchanged
 kubectl get cronjob -n freeexchanged
+kubectl logs job/kafka-topic-init -n freeexchanged
 kubectl logs job/db-migration -n freeexchanged
 kubectl rollout status deployment/gateway -n freeexchanged
 ```
@@ -99,4 +95,4 @@ kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
 - Add Ingress, TLS, and external DNS.
 - Add HPA after observing CPU, memory, and request metrics.
 - Move schema changes to a versioned migration tool once the schema starts changing frequently.
-- Use managed MySQL, Redis, and RabbitMQ if the target environment already provides them.
+- Use managed MySQL, Redis, and Kafka if the target environment already provides them.

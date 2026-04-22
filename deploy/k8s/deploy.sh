@@ -8,12 +8,14 @@ echo "==> [1/4] Apply namespace"
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
 
 echo "==> [2/4] Apply infrastructure"
+kubectl delete job/kafka-topic-init -n "$NAMESPACE" --ignore-not-found
 kubectl apply -f "$SCRIPT_DIR/infra/"
 
 echo "==> Waiting for infrastructure readiness"
 kubectl rollout status statefulset/mysql -n "$NAMESPACE" --timeout=180s
+kubectl rollout status statefulset/kafka -n "$NAMESPACE" --timeout=180s
 kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=90s
-kubectl rollout status deployment/rabbitmq -n "$NAMESPACE" --timeout=120s
+kubectl wait --for=condition=complete job/kafka-topic-init -n "$NAMESPACE" --timeout=180s
 
 echo "==> [3/4] Run database migration"
 kubectl delete job/db-migration -n "$NAMESPACE" --ignore-not-found

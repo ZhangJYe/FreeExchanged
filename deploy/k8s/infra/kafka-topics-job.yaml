@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topic-init
+  namespace: freeexchanged
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: kafka-topic-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: kafka-topics
+        image: bitnami/kafka:3.7
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -ec
+        - |
+          until kafka-topics.sh --bootstrap-server kafka-svc:9092 --list >/dev/null 2>&1; do
+            sleep 2
+          done
+          for topic in article.events interaction.events; do
+            kafka-topics.sh \
+              --bootstrap-server kafka-svc:9092 \
+              --create \
+              --if-not-exists \
+              --topic "$topic" \
+              --partitions 3 \
+              --replication-factor 1
+          done
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
