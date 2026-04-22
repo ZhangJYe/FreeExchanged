@@ -43,6 +43,9 @@ spec:
       - name: rate-rpc
         image: freeexchanged/rate-rpc:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         ports:
         - name: grpc
           containerPort: 8083

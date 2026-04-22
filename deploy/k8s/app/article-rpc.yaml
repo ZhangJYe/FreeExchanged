@@ -20,13 +20,13 @@ data:
       Batcher: otlphttp
       OtlpHttpPath: /v1/traces
 
-    DataSource: root:root@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+    DataSource: ${MYSQL_DSN}
 
     RabbitMQ:
       Host: rabbitmq-svc
       Port: 5672
-      Username: guest
-      Password: guest
+      Username: ${RABBITMQ_USERNAME}
+      Password: ${RABBITMQ_PASSWORD}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,6 +47,9 @@ spec:
       - name: article-rpc
         image: freeexchanged/article-rpc:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         ports:
         - name: grpc
           containerPort: 8084

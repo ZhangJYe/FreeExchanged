@@ -25,7 +25,7 @@ data:
       OtlpHttpPath: /v1/traces
 
     Identity:
-      AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
+      AccessSecret: "${PASETO_ACCESS_SECRET}"
       AccessExpire: 86400
 
     UserRpc:
@@ -84,6 +84,9 @@ spec:
       - name: gateway
         image: freeexchanged/gateway:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         ports:
         - name: http
           containerPort: 8888

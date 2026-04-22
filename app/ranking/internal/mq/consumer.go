@@ -15,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 
 	// Setup consumers
 	// q := kq.MustNewQueue(c.KqConf, logic.NewConsumer(c))

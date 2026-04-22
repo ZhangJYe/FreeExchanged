@@ -27,9 +27,9 @@ data:
     RabbitMQ:
       Host: rabbitmq-svc
       Port: 5672
-      Username: guest
-      Password: guest
-      VHost: /
+      Username: ${RABBITMQ_USERNAME}
+      Password: ${RABBITMQ_PASSWORD}
+      VHost: ${RABBITMQ_VHOST}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,6 +50,9 @@ spec:
       - name: ranking-rpc
         image: freeexchanged/ranking-rpc:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         ports:
         - name: grpc
           containerPort: 8082

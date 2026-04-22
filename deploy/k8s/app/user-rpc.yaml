@@ -20,14 +20,14 @@ data:
       Batcher: otlphttp
       OtlpHttpPath: /v1/traces
 
-    DataSource: root:root@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+    DataSource: ${MYSQL_DSN}
 
     BizRedis:
       Host: redis-svc:6379
       Type: node
 
     Identity:
-      AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
+      AccessSecret: "${PASETO_ACCESS_SECRET}"
       AccessExpire: 86400
 ---
 apiVersion: apps/v1
@@ -49,6 +49,9 @@ spec:
       - name: user-rpc
         image: freeexchanged/user-rpc:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         ports:
         - name: grpc
           containerPort: 8080

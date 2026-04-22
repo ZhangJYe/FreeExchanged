@@ -28,6 +28,9 @@ spec:
       - name: rate-job
         image: freeexchanged/rate-job:latest
         imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
         volumeMounts:
         - name: config
           mountPath: /app/etc

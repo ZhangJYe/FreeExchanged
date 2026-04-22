@@ -81,9 +81,15 @@ spec:
         image: mysql:8.0
         env:
         - name: MYSQL_ROOT_PASSWORD
-          value: "root"
+          valueFrom:
+            secretKeyRef:
+              name: freeexchanged-secrets
+              key: MYSQL_ROOT_PASSWORD
         - name: MYSQL_DATABASE
-          value: "freeexchanged"
+          valueFrom:
+            secretKeyRef:
+              name: freeexchanged-secrets
+              key: MYSQL_DATABASE
         ports:
         - containerPort: 3306
         volumeMounts:
@@ -93,7 +99,7 @@ spec:
           mountPath: /docker-entrypoint-initdb.d
         readinessProbe:
           exec:
-            command: ["mysqladmin", "ping", "-uroot", "-proot"]
+            command: ["sh", "-c", "mysqladmin ping -uroot -p$MYSQL_ROOT_PASSWORD"]
           initialDelaySeconds: 10
           periodSeconds: 5
       volumes:
