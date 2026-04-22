@@ -24,7 +24,11 @@ func NewReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ReadLogic {
 }
 
 func (l *ReadLogic) Read(in *pb.ReadReq) (*pb.ReadResp, error) {
-	// todo: add your logic here and delete this line
+	if err := publishInteractionEvent(l.svcCtx.MqChannel, "read", in.UserId, in.ArticleId); err != nil {
+		l.Logger.Errorf("Read: publish msg error: %v", err)
+		return nil, err
+	}
 
+	l.Logger.Infof("Read event published: uid=%d, aid=%d", in.UserId, in.ArticleId)
 	return &pb.ReadResp{}, nil
 }

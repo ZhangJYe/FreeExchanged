@@ -1,6 +1,6 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthProvider';
+import { useAuth } from './context/useAuth';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -16,13 +16,20 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Navbar />
-        <div className="container">
+        <div className="app-shell">
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route element={<PrivateRoute />}>
-              <Route path="/" element={<Dashboard />} />
+              <Route
+                path="/"
+                element={(
+                  <>
+                    <Navbar />
+                    <Dashboard />
+                  </>
+                )}
+              />
             </Route>
           </Routes>
         </div>

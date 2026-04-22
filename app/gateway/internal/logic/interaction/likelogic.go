@@ -6,6 +6,7 @@ package interaction
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"freeexchanged/app/gateway/internal/svc"
 	"freeexchanged/app/gateway/internal/types"
@@ -36,11 +37,24 @@ func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeResp, err error) {
 	} else if v, ok := l.ctx.Value("userId").(int64); ok {
 		userId = v
 	}
+	if userId <= 0 {
+		return nil, errors.New("missing user id")
+	}
 
-	_, err = l.svcCtx.InteractionRpc.Like(l.ctx, &interactionclient.LikeReq{
-		UserId:    userId,
-		ArticleId: req.ArticleId,
-	})
+	switch req.Action {
+	case 0, 1:
+		_, err = l.svcCtx.InteractionRpc.Like(l.ctx, &interactionclient.LikeReq{
+			UserId:    userId,
+			ArticleId: req.ArticleId,
+		})
+	case 2:
+		_, err = l.svcCtx.InteractionRpc.Unlike(l.ctx, &interactionclient.UnlikeReq{
+			UserId:    userId,
+			ArticleId: req.ArticleId,
+		})
+	default:
+		return nil, errors.New("invalid action")
+	}
 
 	return &types.LikeResp{}, err
 }

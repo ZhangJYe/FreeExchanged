@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"freeexchanged/app/ranking/cmd/rpc/internal/constant"
 	"freeexchanged/app/ranking/cmd/rpc/internal/svc"
 	"freeexchanged/app/ranking/cmd/rpc/pb"
 
@@ -33,7 +34,7 @@ func (l *GetTopLogic) GetTop(in *pb.GetTopReq) (*pb.GetTopResp, error) {
 		return &pb.GetTopResp{}, nil
 	}
 
-	pairs, err := l.svcCtx.Redis.ZrevrangeWithScores("hot_articles", 0, int64(in.N-1))
+	pairs, err := l.svcCtx.Redis.ZrevrangeWithScores(constant.RankingHotKey, 0, int64(in.N-1))
 	if err != nil {
 		l.Logger.Errorf("GetTop error: %v", err)
 		return nil, err

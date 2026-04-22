@@ -1,29 +1,40 @@
+import { useAuth } from '../context/useAuth';
 
-import { useAuth } from '../context/AuthContext';
+const ExitIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 7V5.8C9 4.8 9.8 4 10.8 4H18v16h-7.2A1.8 1.8 0 0 1 9 18.2V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M13 12H3m0 0 3.5-3.5M3 12l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
 
 const Navbar = () => {
     const { user, logout } = useAuth();
     if (!user) return null;
 
+    const initial = user.nickname ? user.nickname[0].toUpperCase() : 'U';
+
     return (
-        <nav style={{ background: '#1e293b', color: 'white', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-            <div style={{ fontWeight: 600, fontSize: '1.2rem' }}>FreeExchanged</div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{ marginRight: 20, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ width: 30, height: 30, background: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                        {user.nickname ? user.nickname[0].toUpperCase() : 'U'}
-                    </div>
-                    <span>{user.nickname}</span>
+        <nav className="topbar">
+            <div className="brand-lockup">
+                <div className="brand-mark">FX</div>
+                <div>
+                    <h1 className="brand-name">FreeExchanged</h1>
+                    <p className="brand-meta">LIVE FX WORKSTATION</p>
                 </div>
-                <button
-                    onClick={logout}
-                    className="btn"
-                    style={{ background: '#ef4444' }}
-                >
+            </div>
+
+            <div className="nav-actions">
+                <div className="user-chip">
+                    <div className="avatar">{initial}</div>
+                    <span className="user-name">{user.nickname || 'Trader'}</span>
+                </div>
+                <button type="button" className="btn btn-quiet" onClick={logout}>
+                    <ExitIcon />
                     Logout
                 </button>
             </div>
         </nav>
     );
 };
+
 export default Navbar;

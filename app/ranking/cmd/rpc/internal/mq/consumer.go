@@ -6,16 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"freeexchanged/app/ranking/cmd/rpc/internal/constant"
 	"freeexchanged/app/ranking/cmd/rpc/internal/svc"
 
 	"github.com/streadway/amqp"
 	"github.com/zeromicro/go-zero/core/logx"
-)
-
-const (
-	ExchangeName  = "article.events"
-	QueueName     = "ranking_article_queue"
-	RoutingKeyPub = "article.publish"
 )
 
 type ArticleConsumer struct {
@@ -31,33 +26,20 @@ func NewArticleConsumer(ctx context.Context, svcCtx *svc.ServiceContext) *Articl
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		logx.Errorf("Failed to connect to RabbitMQ: %v", err)
-		return nil // 允许连接失败，不 panic，方便本地调试
+		return nil
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		logx.Errorf("Failed to open channel: %v", err)
+		_ = conn.Close()
 		return nil
 	}
 
-	// 1. 声明 Exchange (幂等)
-	err = ch.ExchangeDeclare(ExchangeName, "topic", true, false, false, false, nil)
-	if err != nil {
-		logx.Errorf("Failed to declare exchange: %v", err)
-		return nil
-	}
-
-	// 2. 声明 Queue
-	_, err = ch.QueueDeclare(QueueName, true, false, false, false, nil)
-	if err != nil {
-		logx.Errorf("Failed to declare queue: %v", err)
-		return nil
-	}
-
-	// 3. 绑定
-	err = ch.QueueBind(QueueName, RoutingKeyPub, ExchangeName, false, nil)
-	if err != nil {
-		logx.Errorf("Failed to bind queue: %v", err)
+	if err := declareTopology(ch); err != nil {
+		logx.Errorf("Failed to declare ranking MQ topology: %v", err)
+		_ = ch.Close()
+		_ = conn.Close()
 		return nil
 	}
 
@@ -74,27 +56,70 @@ func (c *ArticleConsumer) Start() {
 		return
 	}
 
-	msgs, err := c.channel.Consume(
-		QueueName, // queue
-		"",        // consumer
-		true,      // auto-ack
-		false,     // exclusive
-		false,     // no-local
-		false,     // no-wait
-		nil,       // args
+	articleMsgs, err := c.channel.Consume(
+		constant.ArticlePublishQueueName,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		logx.Errorf("Failed to register consumer: %v", err)
+		logx.Errorf("Failed to register article consumer: %v", err)
 		return
 	}
 
-	logx.Info("ArticleConsumer started, waiting for messages...")
+	interactionMsgs, err := c.channel.Consume(
+		constant.InteractionQueueName,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		logx.Errorf("Failed to register interaction consumer: %v", err)
+		return
+	}
+
+	logx.Info("ArticleConsumer started, waiting for article and interaction messages...")
 
 	go func() {
-		for d := range msgs {
-			c.handleMessage(d.Body)
+		for d := range articleMsgs {
+			c.handleArticleMessage(d.Body)
 		}
 	}()
+
+	go func() {
+		for d := range interactionMsgs {
+			c.handleInteractionMessage(d.Body, d.RoutingKey)
+		}
+	}()
+}
+
+func declareTopology(ch *amqp.Channel) error {
+	if err := ch.ExchangeDeclare(constant.ArticleExchangeName, "topic", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare article exchange: %w", err)
+	}
+	if _, err := ch.QueueDeclare(constant.ArticlePublishQueueName, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare article queue: %w", err)
+	}
+	if err := ch.QueueBind(constant.ArticlePublishQueueName, constant.ArticlePublishRoutingKey, constant.ArticleExchangeName, false, nil); err != nil {
+		return fmt.Errorf("bind article queue: %w", err)
+	}
+
+	if err := ch.ExchangeDeclare(constant.InteractionExchangeName, "topic", true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare interaction exchange: %w", err)
+	}
+	if _, err := ch.QueueDeclare(constant.InteractionQueueName, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("declare interaction queue: %w", err)
+	}
+	if err := ch.QueueBind(constant.InteractionQueueName, constant.InteractionRoutingKey, constant.InteractionExchangeName, false, nil); err != nil {
+		return fmt.Errorf("bind interaction queue: %w", err)
+	}
+	return nil
 }
 
 type PublishEvent struct {
@@ -103,23 +128,61 @@ type PublishEvent struct {
 	EventType string `json:"event_type"`
 }
 
-func (c *ArticleConsumer) handleMessage(body []byte) {
+func (c *ArticleConsumer) handleArticleMessage(body []byte) {
 	var event PublishEvent
 	if err := json.Unmarshal(body, &event); err != nil {
 		logx.Errorf("Error decoding message: %v", err)
 		return
 	}
 
-	if event.EventType == "publish" {
-		logx.Infof("Received publish event: article_id=%d", event.ArticleId)
-		// 初始热度设为发布时间（确保新文章能排在前面一点，或者设为 0）
-		score := time.Now().Unix()
-		// 写入 Ranking 的 ZSet
-		_, err := c.svcCtx.Redis.ZaddCtx(c.ctx, "ranking:hot", score, fmt.Sprintf("%d", event.ArticleId))
-		if err != nil {
-			logx.Errorf("Failed to update ranking: %v", err)
-		} else {
-			logx.Infof("Added article %d to ranking with score %f", event.ArticleId, score)
-		}
+	if event.EventType != "publish" {
+		return
 	}
+
+	score := time.Now().Unix()
+	_, err := c.svcCtx.Redis.ZaddCtx(c.ctx, constant.RankingHotKey, score, fmt.Sprintf("%d", event.ArticleId))
+	if err != nil {
+		logx.Errorf("Failed to update ranking: %v", err)
+		return
+	}
+	logx.Infof("Added article %d to ranking with score %d", event.ArticleId, score)
+}
+
+type InteractionEvent struct {
+	UserId    int64  `json:"user_id"`
+	ArticleId int64  `json:"article_id"`
+	EventType string `json:"event_type"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+func (c *ArticleConsumer) handleInteractionMessage(body []byte, routingKey string) {
+	var event InteractionEvent
+	if err := json.Unmarshal(body, &event); err != nil {
+		logx.Errorf("Error decoding interaction message: %v", err)
+		return
+	}
+	if event.ArticleId <= 0 {
+		logx.Errorf("Interaction event missing article_id, routing_key=%s", routingKey)
+		return
+	}
+
+	delta := int64(0)
+	switch event.EventType {
+	case "like":
+		delta = 10
+	case "unlike":
+		delta = -10
+	case "read":
+		delta = 1
+	default:
+		logx.Errorf("Unknown interaction event type: %s", event.EventType)
+		return
+	}
+
+	_, err := c.svcCtx.Redis.ZincrbyCtx(c.ctx, constant.RankingHotKey, delta, fmt.Sprintf("%d", event.ArticleId))
+	if err != nil {
+		logx.Errorf("Failed to update ranking from interaction: %v", err)
+		return
+	}
+	logx.Infof("Applied %s event to article %d with delta %d", event.EventType, event.ArticleId, delta)
 }

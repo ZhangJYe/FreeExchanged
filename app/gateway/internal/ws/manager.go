@@ -3,6 +3,8 @@ package ws
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -10,66 +12,98 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     sameOrigin,
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
-// Manager 管理所有在线 WebSocket 连接
 type Manager struct {
-	clients map[int64]*websocket.Conn
+	clients map[int64]*client
 	mu      sync.RWMutex
 }
 
-// Hub 全局单例
+type client struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
 var Hub = &Manager{
-	clients: make(map[int64]*websocket.Conn),
+	clients: make(map[int64]*client),
+}
+
+func sameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
 }
 
 func (m *Manager) Add(userId int64, conn *websocket.Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// 踢出旧连接
+
 	if old, ok := m.clients[userId]; ok {
-		old.Close()
+		_ = old.conn.Close()
 	}
-	m.clients[userId] = conn
+	m.clients[userId] = &client{conn: conn}
 	logx.Infof("[WS] user %d connected, total online: %d", userId, len(m.clients))
 }
 
-func (m *Manager) Remove(userId int64) {
+func (m *Manager) Remove(userId int64, conn *websocket.Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if conn, ok := m.clients[userId]; ok {
-		conn.Close()
-		delete(m.clients, userId)
-		logx.Infof("[WS] user %d disconnected, total online: %d", userId, len(m.clients))
+
+	current, ok := m.clients[userId]
+	if !ok || current.conn != conn {
+		return
 	}
+
+	_ = current.conn.Close()
+	delete(m.clients, userId)
+	logx.Infof("[WS] user %d disconnected, total online: %d", userId, len(m.clients))
 }
 
-// SendToUser 推送给指定用户
 func (m *Manager) SendToUser(userId int64, msg any) {
 	m.mu.RLock()
-	conn, ok := m.clients[userId]
+	c, ok := m.clients[userId]
 	m.mu.RUnlock()
 	if !ok {
 		return
 	}
+
 	data, _ := json.Marshal(msg)
-	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	c.mu.Lock()
+	err := c.conn.WriteMessage(websocket.TextMessage, data)
+	c.mu.Unlock()
+	if err != nil {
 		logx.Errorf("[WS] send to user %d failed: %v", userId, err)
-		m.Remove(userId)
+		m.Remove(userId, c.conn)
 	}
 }
 
-// Broadcast 广播给所有在线用户
 func (m *Manager) Broadcast(msg any) {
 	data, _ := json.Marshal(msg)
+
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for uid, conn := range m.clients {
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	snapshot := make(map[int64]*client, len(m.clients))
+	for uid, c := range m.clients {
+		snapshot[uid] = c
+	}
+	m.mu.RUnlock()
+
+	for uid, c := range snapshot {
+		c.mu.Lock()
+		err := c.conn.WriteMessage(websocket.TextMessage, data)
+		c.mu.Unlock()
+		if err != nil {
 			logx.Errorf("[WS] broadcast to user %d failed: %v", uid, err)
+			m.Remove(uid, c.conn)
 		}
 	}
 }

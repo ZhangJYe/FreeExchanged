@@ -24,7 +24,11 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 }
 
 func (l *UnlikeLogic) Unlike(in *pb.UnlikeReq) (*pb.UnlikeResp, error) {
-	// todo: add your logic here and delete this line
+	if err := publishInteractionEvent(l.svcCtx.MqChannel, "unlike", in.UserId, in.ArticleId); err != nil {
+		l.Logger.Errorf("Unlike: publish msg error: %v", err)
+		return nil, err
+	}
 
+	l.Logger.Infof("Unlike event published: uid=%d, aid=%d", in.UserId, in.ArticleId)
 	return &pb.UnlikeResp{}, nil
 }

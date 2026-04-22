@@ -15,11 +15,11 @@ class WsClient {
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/ws?token=${token}`;
+        const wsUrl = `${protocol}//${host}/ws`;
 
-        console.log('Connecting WS:', wsUrl);
+        console.log('Connecting WS');
 
-        this.socket = new WebSocket(wsUrl);
+        this.socket = new WebSocket(wsUrl, ['auth', token]);
 
         this.socket.onopen = () => {
             console.log('WS Connected');

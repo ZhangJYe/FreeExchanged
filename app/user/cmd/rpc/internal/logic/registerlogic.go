@@ -36,6 +36,10 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 // 4. 生成 Token
 func (l *RegisterLogic) Register(in *pb.RegisterReq) (*pb.RegisterResp, error) {
 	// 1. 基础参数校验 (手机号格式等建议在网关层做，这里只做业务逻辑校验)
+	mobile := strings.TrimSpace(in.Mobile)
+	if mobile == "" {
+		return nil, status.Error(codes.InvalidArgument, "mobile is required")
+	}
 	if len(in.Password) < 6 {
 		return nil, status.Error(codes.InvalidArgument, "password too short")
 	}
@@ -50,9 +54,10 @@ func (l *RegisterLogic) Register(in *pb.RegisterReq) (*pb.RegisterResp, error) {
 
 	// 3. 构建用户对象并插入数据库
 	newUser := &model.User{
-		Mobile:   in.Mobile,
+		Username: mobile,
+		Mobile:   mobile,
 		Password: hashedPassword, // 存加密后的
-		Nickname: in.Nickname,
+		Nickname: strings.TrimSpace(in.Nickname),
 	}
 
 	// 调用 model 层的 Insert 方法
