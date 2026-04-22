@@ -28,11 +28,11 @@ func main() {
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
 
-	// 启动 RabbitMQ Consumer
+	// Start Kafka consumers for ranking events.
 	consumer := mq.NewArticleConsumer(context.Background(), ctx)
 	if consumer != nil {
 		consumer.Start()
-		logx.Info("RabbitMQ Consumer started")
+		logx.Info("Kafka consumer started")
 	}
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {

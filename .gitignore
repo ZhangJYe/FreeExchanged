@@ -12,4 +12,6 @@ data/mysql/
 
 # Markdown documentation
 *.md
+!docs/
+!docs/**/*.md
 !deploy/k8s/README.md

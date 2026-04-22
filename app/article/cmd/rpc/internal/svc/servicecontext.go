@@ -20,11 +20,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:       c,
 		ArticleModel: model.NewArticlesModel(conn),
-		Producer: mq.NewProducer(mq.RabbitMqConf{
-			Host:     c.RabbitMQ.Host,
-			Port:     c.RabbitMQ.Port,
-			Username: c.RabbitMQ.Username,
-			Password: c.RabbitMQ.Password,
+		Producer: mq.NewProducer(mq.KafkaConf{
+			Brokers: c.Kafka.Brokers,
 		}),
 	}
 }

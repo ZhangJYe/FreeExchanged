@@ -22,11 +22,9 @@ data:
 
     DataSource: ${MYSQL_DSN}
 
-    RabbitMQ:
-      Host: rabbitmq-svc
-      Port: 5672
-      Username: ${RABBITMQ_USERNAME}
-      Password: ${RABBITMQ_PASSWORD}
+    Kafka:
+      Brokers:
+        - kafka-svc:9092
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -13,11 +13,6 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-# --- RabbitMQ 配置 ---
-RabbitMQ:
-  Host: 127.0.0.1
-  Port: 5673    # 映射到宿主机的端口 (docker内部5672)
-  Username: guest
-  Password: guest
-  VHost: /
-
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092

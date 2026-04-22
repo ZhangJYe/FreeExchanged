@@ -5,6 +5,7 @@ import (
 
 	"freeexchanged/app/interaction/cmd/rpc/internal/svc"
 	"freeexchanged/app/interaction/cmd/rpc/pb"
+	"freeexchanged/pkg/events"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +25,7 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 }
 
 func (l *LikeLogic) Like(in *pb.LikeReq) (*pb.LikeResp, error) {
-	if err := publishInteractionEvent(l.svcCtx.MqChannel, "like", in.UserId, in.ArticleId); err != nil {
+	if err := publishInteractionEvent(l.ctx, l.svcCtx.EventProducer, events.EventInteractionLike, in.UserId, in.ArticleId); err != nil {
 		l.Logger.Errorf("Like: publish msg error: %v", err)
 		return nil, err
 	}

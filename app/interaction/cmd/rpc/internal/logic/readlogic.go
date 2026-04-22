@@ -5,6 +5,7 @@ import (
 
 	"freeexchanged/app/interaction/cmd/rpc/internal/svc"
 	"freeexchanged/app/interaction/cmd/rpc/pb"
+	"freeexchanged/pkg/events"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +25,7 @@ func NewReadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ReadLogic {
 }
 
 func (l *ReadLogic) Read(in *pb.ReadReq) (*pb.ReadResp, error) {
-	if err := publishInteractionEvent(l.svcCtx.MqChannel, "read", in.UserId, in.ArticleId); err != nil {
+	if err := publishInteractionEvent(l.ctx, l.svcCtx.EventProducer, events.EventInteractionRead, in.UserId, in.ArticleId); err != nil {
 		l.Logger.Errorf("Read: publish msg error: %v", err)
 		return nil, err
 	}

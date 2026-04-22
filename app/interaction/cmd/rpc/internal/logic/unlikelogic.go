@@ -5,6 +5,7 @@ import (
 
 	"freeexchanged/app/interaction/cmd/rpc/internal/svc"
 	"freeexchanged/app/interaction/cmd/rpc/pb"
+	"freeexchanged/pkg/events"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +25,7 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 }
 
 func (l *UnlikeLogic) Unlike(in *pb.UnlikeReq) (*pb.UnlikeResp, error) {
-	if err := publishInteractionEvent(l.svcCtx.MqChannel, "unlike", in.UserId, in.ArticleId); err != nil {
+	if err := publishInteractionEvent(l.ctx, l.svcCtx.EventProducer, events.EventInteractionUnlike, in.UserId, in.ArticleId); err != nil {
 		l.Logger.Errorf("Unlike: publish msg error: %v", err)
 		return nil, err
 	}

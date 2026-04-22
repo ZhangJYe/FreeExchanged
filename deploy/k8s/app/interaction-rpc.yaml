@@ -20,12 +20,9 @@ data:
       Batcher: otlphttp
       OtlpHttpPath: /v1/traces
 
-    RabbitMQ:
-      Host: rabbitmq-svc
-      Port: 5672
-      Username: ${RABBITMQ_USERNAME}
-      Password: ${RABBITMQ_PASSWORD}
-      VHost: ${RABBITMQ_VHOST}
+    Kafka:
+      Brokers:
+        - kafka-svc:9092
 ---
 apiVersion: apps/v1
 kind: Deployment

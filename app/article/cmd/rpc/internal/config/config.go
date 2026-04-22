@@ -7,10 +7,7 @@ import (
 type Config struct {
 	zrpc.RpcServerConf
 	DataSource string
-	RabbitMQ   struct {
-		Host     string
-		Port     int
-		Username string
-		Password string
+	Kafka      struct {
+		Brokers []string
 	}
 }

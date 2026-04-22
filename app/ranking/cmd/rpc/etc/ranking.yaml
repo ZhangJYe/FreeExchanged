@@ -17,10 +17,6 @@ BizRedis:
   Host: 127.0.0.1:6380
   Type: node
 
-RabbitMQ:
-  Host: 127.0.0.1
-  Port: 5673
-  Username: guest
-  Password: guest
-  VHost: /
-
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092

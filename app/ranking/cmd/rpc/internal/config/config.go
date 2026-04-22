@@ -8,11 +8,7 @@ import (
 type Config struct {
 	zrpc.RpcServerConf
 	BizRedis redis.RedisConf
-	RabbitMQ struct {
-		Host     string
-		Port     int
-		Username string
-		Password string
-		VHost    string
+	Kafka    struct {
+		Brokers []string
 	}
 }

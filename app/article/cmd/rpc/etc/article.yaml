@@ -13,12 +13,8 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-# 注意：本地开发用 3307，密码 root
 DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 
-# 注意：本地开发用 5673 (映射端口)
-RabbitMQ:
-  Host: 127.0.0.1
-  Port: 5673
-  Username: guest
-  Password: guest
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092

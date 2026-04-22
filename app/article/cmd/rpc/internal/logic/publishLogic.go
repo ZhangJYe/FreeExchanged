@@ -46,7 +46,7 @@ func (l *PublishLogic) Publish(in *article.PublishReq) (*article.PublishResp, er
 	// 2. 发送 MQ 消息 (异步)
 	// 如果 MQ 失败，业务流程上文章已发布成功，仅仅是没进排行榜，可以接受
 	go func() {
-		if err := l.svcCtx.Producer.PublishArticleEvent(articleId, in.Title, in.AuthorId); err != nil {
+		if err := l.svcCtx.Producer.PublishArticleEvent(context.Background(), articleId, in.Title, in.AuthorId); err != nil {
 			logx.Errorf("Failed to send publish event for article %d: %v", articleId, err)
 		}
 	}()
