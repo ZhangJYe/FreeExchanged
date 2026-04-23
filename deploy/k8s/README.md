@@ -26,6 +26,7 @@ Build and push these images before running the manifests:
 - `freeexchanged/gateway:latest`
 - `freeexchanged/user-rpc:latest`
 - `freeexchanged/article-rpc:latest`
+- `freeexchanged/article-outbox:latest`
 - `freeexchanged/interaction-rpc:latest`
 - `freeexchanged/ranking-stream:latest`
 - `freeexchanged/ranking-rpc:latest`

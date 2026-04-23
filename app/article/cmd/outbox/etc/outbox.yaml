@@ -1,0 +1,7 @@
+DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+PollIntervalSeconds: 2
+BatchSize: 50
+
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092

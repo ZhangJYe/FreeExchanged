@@ -7,7 +7,4 @@ import (
 type Config struct {
 	zrpc.RpcServerConf
 	DataSource string
-	Kafka      struct {
-		Brokers []string
-	}
 }

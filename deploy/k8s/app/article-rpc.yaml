@@ -21,10 +21,6 @@ data:
       OtlpHttpPath: /v1/traces
 
     DataSource: ${MYSQL_DSN}
-
-    Kafka:
-      Brokers:
-        - kafka-svc:9092
 ---
 apiVersion: apps/v1
 kind: Deployment

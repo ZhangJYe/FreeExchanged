@@ -2,7 +2,6 @@ package svc
 
 import (
 	"freeexchanged/app/article/cmd/rpc/internal/config"
-	"freeexchanged/app/article/cmd/rpc/internal/mq"
 	"freeexchanged/app/article/model"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -11,17 +10,15 @@ import (
 
 type ServiceContext struct {
 	Config       config.Config
+	Conn         sqlx.SqlConn
 	ArticleModel model.ArticlesModel
-	Producer     *mq.Producer
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	conn := sqlx.NewMysql(c.DataSource)
 	return &ServiceContext{
 		Config:       c,
+		Conn:         conn,
 		ArticleModel: model.NewArticlesModel(conn),
-		Producer: mq.NewProducer(mq.KafkaConf{
-			Brokers: c.Kafka.Brokers,
-		}),
 	}
 }
