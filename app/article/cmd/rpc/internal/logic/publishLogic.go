@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"freeexchanged/app/article/cmd/rpc/article"
@@ -33,13 +34,25 @@ func NewPublishLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PublishLo
 }
 
 func (l *PublishLogic) Publish(in *article.PublishReq) (*article.PublishResp, error) {
+	title := strings.TrimSpace(in.Title)
+	content := strings.TrimSpace(in.Content)
+	if in.AuthorId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "author is required")
+	}
+	if title == "" {
+		return nil, status.Error(codes.InvalidArgument, "title is required")
+	}
+	if content == "" {
+		return nil, status.Error(codes.InvalidArgument, "content is required")
+	}
+
 	var articleID int64
 
 	err := l.svcCtx.Conn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
 		articleModel := model.NewArticlesModel(sqlx.NewSqlConnFromSession(session))
 		res, err := articleModel.Insert(ctx, &model.Articles{
-			Title:    in.Title,
-			Content:  in.Content,
+			Title:    title,
+			Content:  content,
 			AuthorId: in.AuthorId,
 			Status:   1,
 		})
@@ -57,7 +70,7 @@ func (l *PublishLogic) Publish(in *article.PublishReq) (*article.PublishResp, er
 			"event_type":  events.EventArticlePublished,
 			"version":     1,
 			"article_id":  articleID,
-			"title":       in.Title,
+			"title":       title,
 			"author_id":   in.AuthorId,
 			"occurred_at": time.Now().Unix(),
 		})

@@ -2,6 +2,7 @@ package article
 
 import (
 	"context"
+	"errors"
 
 	articleClient "freeexchanged/app/article/cmd/rpc/articleclient"
 	"freeexchanged/app/gateway/internal/svc"
@@ -33,6 +34,9 @@ func (l *PublishLogic) Publish(req *types.PublishArticleReq) (resp *types.Publis
 		} else if idFloat, ok := v.(float64); ok {
 			userId = int64(idFloat)
 		}
+	}
+	if userId <= 0 {
+		return nil, errors.New("missing user id")
 	}
 
 	res, err := l.svcCtx.ArticleRpc.Publish(l.ctx, &articleClient.PublishReq{
