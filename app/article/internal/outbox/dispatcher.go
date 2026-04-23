@@ -108,6 +108,16 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 			return
 		}
 
+		held, err := d.extendLease(ctx, event.ID)
+		if err != nil {
+			logx.Errorf("extend article outbox event id=%d lease failed: %v", event.ID, err)
+			continue
+		}
+		if !held {
+			logx.Errorf("skip article outbox event id=%d because lease was lost", event.ID)
+			continue
+		}
+
 		if err := d.publish(ctx, event); err != nil {
 			logx.Errorf("publish article outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
 			if markErr := d.markFailed(ctx, event.ID, err); markErr != nil {
@@ -153,12 +163,39 @@ func (d *Dispatcher) publish(ctx context.Context, event Event) error {
 	return producer.Publish(ctx, event.EventKey, []byte(event.Payload))
 }
 
+func (d *Dispatcher) extendLease(ctx context.Context, id int64) (bool, error) {
+	res, err := d.conn.ExecCtx(ctx, `
+UPDATE article_outbox_events
+SET locked_until = ?, update_time = NOW()
+WHERE id = ? AND status = ? AND locked_by = ?`, time.Now().Add(d.claimTTL), id, statusProcessing, d.workerID)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
 func (d *Dispatcher) markSent(ctx context.Context, id int64) error {
-	_, err := d.conn.ExecCtx(ctx, `
+	res, err := d.conn.ExecCtx(ctx, `
 UPDATE article_outbox_events
 SET status = ?, locked_by = '', locked_until = NULL, last_error = '', update_time = NOW()
-WHERE id = ? AND locked_by = ?`, statusSent, id, d.workerID)
-	return err
+WHERE id = ? AND status = ? AND locked_by = ?`, statusSent, id, statusProcessing, d.workerID)
+	if err != nil {
+		return err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("article outbox event %d lease lost before mark sent", id)
+	}
+	return nil
 }
 
 func (d *Dispatcher) markFailed(ctx context.Context, id int64, publishErr error) error {
@@ -177,11 +214,22 @@ func (d *Dispatcher) markFailed(ctx context.Context, id int64, publishErr error)
 		message = message[:1024]
 	}
 
-	_, err = d.conn.ExecCtx(ctx, `
+	res, err := d.conn.ExecCtx(ctx, `
 UPDATE article_outbox_events
 SET status = ?, retry_count = retry_count + 1, last_error = ?, next_retry_at = ?, locked_by = '', locked_until = NULL, update_time = NOW()
-WHERE id = ? AND locked_by = ?`, statusPending, message, time.Now().Add(time.Duration(delaySeconds)*time.Second), id, d.workerID)
-	return err
+WHERE id = ? AND status = ? AND locked_by = ?`, statusPending, message, time.Now().Add(time.Duration(delaySeconds)*time.Second), id, statusProcessing, d.workerID)
+	if err != nil {
+		return err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("article outbox event %d lease lost before mark failed", id)
+	}
+	return nil
 }
 
 func (d *Dispatcher) retryCount(ctx context.Context, id int64) (int, error) {

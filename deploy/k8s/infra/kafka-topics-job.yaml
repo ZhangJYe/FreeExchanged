@@ -22,14 +22,15 @@ spec:
           until kafka-topics.sh --bootstrap-server kafka-svc:9092 --list >/dev/null 2>&1; do
             sleep 2
           done
-          for topic in article.events interaction.events; do
+          for topic in article.events interaction.events ranking.dlq; do
             kafka-topics.sh \
               --bootstrap-server kafka-svc:9092 \
               --create \
               --if-not-exists \
               --topic "$topic" \
               --partitions 3 \
-              --replication-factor 1
+              --replication-factor 3 \
+              --config min.insync.replicas=2
           done
         resources:
           requests:

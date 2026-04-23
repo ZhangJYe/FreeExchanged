@@ -26,4 +26,6 @@ The lite overlay exposes:
 - web: `NodePort 30080`
 - gateway: `NodePort 30888`
 
+The overlay intentionally scales Kafka and stream workers down to one replica for small single-node K3s deployments. Use the standard K8s manifests for the three-broker Kafka topology.
+
 `Caddyfile.free.snippet` can proxy `/free`, `/free/v1`, and `/free/ws` to those NodePorts.

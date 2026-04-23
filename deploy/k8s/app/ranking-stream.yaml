@@ -20,7 +20,7 @@ metadata:
   namespace: freeexchanged
 spec:
   revisionHistoryLimit: 3
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: ranking-stream

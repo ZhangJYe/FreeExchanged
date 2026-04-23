@@ -18,7 +18,10 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
 )
 
-const processedEventTTLSeconds = 7 * 24 * 60 * 60
+const (
+	processedEventTTLSeconds = 7 * 24 * 60 * 60
+	maxProcessingAttempts    = 30
+)
 
 var applyInteractionScript = redis.NewScript(`
 if ARGV[2] ~= "" then
@@ -38,6 +41,7 @@ type Consumer struct {
 	redis               *redis.Redis
 	articleConsumer     *eventstream.Consumer
 	interactionConsumer *eventstream.Consumer
+	dlqProducer         *eventstream.Producer
 }
 
 func NewConsumer(ctx context.Context, c config.Config) *Consumer {
@@ -47,6 +51,7 @@ func NewConsumer(ctx context.Context, c config.Config) *Consumer {
 		redis:               redis.MustNewRedis(c.BizRedis),
 		articleConsumer:     eventstream.NewConsumer(kafkaConf, events.TopicArticleEvents, constant.RankingArticleGroup),
 		interactionConsumer: eventstream.NewConsumer(kafkaConf, events.TopicInteractionEvents, constant.RankingInteractionGroup),
+		dlqProducer:         eventstream.NewProducer(kafkaConf, events.TopicRankingDLQ),
 	}
 }
 
@@ -63,6 +68,9 @@ func (c *Consumer) Close() {
 	}
 	if c.interactionConsumer != nil {
 		_ = c.interactionConsumer.Close()
+	}
+	if c.dlqProducer != nil {
+		_ = c.dlqProducer.Close()
 	}
 }
 
@@ -83,16 +91,28 @@ func (c *Consumer) consumeLoop(name string, consumer *eventstream.Consumer, hand
 }
 
 func (c *Consumer) processMessage(name string, consumer *eventstream.Consumer, msg kafka.Message, handler func([]byte) error) {
-	for {
+	for attempt := 1; ; attempt++ {
 		if err := handler(msg.Value); err != nil {
 			if c.ctx.Err() != nil {
 				return
 			}
 			logx.Errorf("failed to process %s Kafka event topic=%s partition=%d offset=%d: %v", name, msg.Topic, msg.Partition, msg.Offset, err)
+			if attempt >= maxProcessingAttempts {
+				if dlqErr := c.publishDLQ(name, msg, err, attempt); dlqErr != nil {
+					logx.Errorf("failed to publish %s Kafka event to DLQ topic=%s partition=%d offset=%d: %v", name, msg.Topic, msg.Partition, msg.Offset, dlqErr)
+					time.Sleep(time.Second)
+					continue
+				}
+				logx.Errorf("sent %s Kafka event to DLQ after %d attempts topic=%s partition=%d offset=%d", name, attempt, msg.Topic, msg.Partition, msg.Offset)
+				break
+			}
 			time.Sleep(time.Second)
 			continue
 		}
+		break
+	}
 
+	for {
 		if err := consumer.CommitMessages(c.ctx, msg); err != nil {
 			if c.ctx.Err() != nil {
 				return
@@ -103,6 +123,25 @@ func (c *Consumer) processMessage(name string, consumer *eventstream.Consumer, m
 		}
 		return
 	}
+}
+
+func (c *Consumer) publishDLQ(name string, msg kafka.Message, processErr error, attempts int) error {
+	payload, err := json.Marshal(map[string]any{
+		"source":     name,
+		"topic":      msg.Topic,
+		"partition":  msg.Partition,
+		"offset":     msg.Offset,
+		"key":        string(msg.Key),
+		"value":      string(msg.Value),
+		"error":      processErr.Error(),
+		"attempts":   attempts,
+		"created_at": time.Now().Unix(),
+	})
+	if err != nil {
+		return err
+	}
+
+	return c.dlqProducer.Publish(c.ctx, fmt.Sprintf("%s-%d-%d", msg.Topic, msg.Partition, msg.Offset), payload)
 }
 
 type PublishEvent struct {

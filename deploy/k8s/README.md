@@ -19,6 +19,8 @@ This directory contains the Kubernetes manifests for the FreeExchanged backend s
 The migration Job is idempotent because the schema uses `CREATE TABLE IF NOT EXISTS`.
 The exchange-rate worker runs as a CronJob every 15 minutes. Its K8s config sets `RunOnce: true`, so each CronJob execution fetches rates once and exits.
 
+The default K8s manifests run Kafka as a three-broker KRaft cluster and Redis with AOF persistence on a PVC. The K3s lite overlay scales Kafka and stream workers down for single-node demos.
+
 ## Required Images
 
 Build and push these images before running the manifests:

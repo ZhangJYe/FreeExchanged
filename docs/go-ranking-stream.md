@@ -48,6 +48,8 @@ Flink and Hive are JVM-centric systems. They are useful for large-scale streamin
 
 Malformed or unsupported events are logged and committed so they do not block the stream. Redis failures are retried before committing.
 
+After repeated processing failures, `ranking-stream` writes the original Kafka message and error metadata to `ranking.dlq`, then commits the source offset. This keeps one bad event from blocking an entire partition while preserving the payload for inspection and replay.
+
 ## Local Run
 
 ```bash
