@@ -75,11 +75,18 @@ func NewConsumer(c KafkaConf, topic, groupID string) *Consumer {
 	}
 }
 
-func (c *Consumer) ReadMessage(ctx context.Context) (kafka.Message, error) {
+func (c *Consumer) FetchMessage(ctx context.Context) (kafka.Message, error) {
 	if c == nil || c.reader == nil {
 		return kafka.Message{}, errors.New("kafka consumer is not initialized")
 	}
-	return c.reader.ReadMessage(ctx)
+	return c.reader.FetchMessage(ctx)
+}
+
+func (c *Consumer) CommitMessages(ctx context.Context, messages ...kafka.Message) error {
+	if c == nil || c.reader == nil {
+		return errors.New("kafka consumer is not initialized")
+	}
+	return c.reader.CommitMessages(ctx, messages...)
 }
 
 func (c *Consumer) Close() error {

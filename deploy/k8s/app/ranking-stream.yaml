@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ranking-stream-config
+  namespace: freeexchanged
+data:
+  stream.yaml: |
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+
+    Kafka:
+      Brokers:
+        - kafka-svc:9092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ranking-stream
+  namespace: freeexchanged
+spec:
+  revisionHistoryLimit: 3
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ranking-stream
+  template:
+    metadata:
+      labels:
+        app: ranking-stream
+    spec:
+      containers:
+      - name: ranking-stream
+        image: freeexchanged/ranking-stream:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: ranking-stream-config

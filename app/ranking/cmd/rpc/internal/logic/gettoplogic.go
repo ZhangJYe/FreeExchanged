@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"freeexchanged/app/ranking/cmd/rpc/internal/constant"
 	"freeexchanged/app/ranking/cmd/rpc/internal/svc"
 	"freeexchanged/app/ranking/cmd/rpc/pb"
+	"freeexchanged/app/ranking/internal/constant"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

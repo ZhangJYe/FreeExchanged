@@ -27,6 +27,7 @@ kubectl apply -f "$SCRIPT_DIR/app/rate-job.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/rate-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/user-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/interaction-rpc.yaml"
+kubectl apply -f "$SCRIPT_DIR/app/ranking-stream.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/ranking-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/article-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/watchlist-rpc.yaml"
@@ -36,6 +37,7 @@ echo "==> Waiting for application readiness"
 kubectl rollout status deployment/rate-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/user-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/interaction-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/ranking-stream -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/ranking-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/article-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/watchlist-rpc -n "$NAMESPACE" --timeout=120s

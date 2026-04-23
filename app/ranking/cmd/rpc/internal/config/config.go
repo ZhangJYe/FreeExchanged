@@ -7,9 +7,5 @@ import (
 
 type Config struct {
 	zrpc.RpcServerConf
-	BizRedis        redis.RedisConf
-	ConsumerEnabled bool `json:",default=true"`
-	Kafka           struct {
-		Brokers []string
-	}
+	BizRedis redis.RedisConf
 }

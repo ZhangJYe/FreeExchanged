@@ -6,8 +6,7 @@ This directory contains the Kubernetes manifests for the FreeExchanged backend s
 
 - `namespace.yaml`: creates the `freeexchanged` namespace.
 - `infra/`: MySQL, Redis, Kafka, Jaeger, Prometheus, Grafana, and runtime secrets.
-- `app/`: gateway, RPC services, the exchange-rate CronJob, and the database migration Job.
-- `analytics/`: optional Flink and Hive analytics workloads.
+- `app/`: gateway, RPC services, Go stream workers, the exchange-rate CronJob, and the database migration Job.
 - `deploy.sh`: applies resources in dependency order.
 
 ## Deployment Order
@@ -28,6 +27,7 @@ Build and push these images before running the manifests:
 - `freeexchanged/user-rpc:latest`
 - `freeexchanged/article-rpc:latest`
 - `freeexchanged/interaction-rpc:latest`
+- `freeexchanged/ranking-stream:latest`
 - `freeexchanged/ranking-rpc:latest`
 - `freeexchanged/rate-rpc:latest`
 - `freeexchanged/watchlist-rpc:latest`
@@ -97,4 +97,3 @@ kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
 - Add HPA after observing CPU, memory, and request metrics.
 - Move schema changes to a versioned migration tool once the schema starts changing frequently.
 - Use managed MySQL, Redis, and Kafka if the target environment already provides them.
-- Move Hive warehouse storage to HDFS or object storage before production analytics usage.

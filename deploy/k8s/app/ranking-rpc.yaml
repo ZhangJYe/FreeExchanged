@@ -23,12 +23,6 @@ data:
     BizRedis:
       Host: redis-svc:6379
       Type: node
-
-    ConsumerEnabled: true
-
-    Kafka:
-      Brokers:
-        - kafka-svc:9092
 ---
 apiVersion: apps/v1
 kind: Deployment

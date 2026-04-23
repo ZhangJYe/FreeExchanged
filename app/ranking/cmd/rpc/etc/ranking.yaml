@@ -16,9 +16,3 @@ Telemetry:
 BizRedis:
   Host: 127.0.0.1:6380
   Type: node
-
-ConsumerEnabled: true
-
-Kafka:
-  Brokers:
-    - 127.0.0.1:9092

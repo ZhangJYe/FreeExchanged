@@ -1,5 +1,10 @@
 package config
 
+import "github.com/zeromicro/go-zero/core/stores/redis"
+
 type Config struct {
-	// KqConf kq.KqConf
+	BizRedis redis.RedisConf
+	Kafka    struct {
+		Brokers []string
+	}
 }
