@@ -8,6 +8,8 @@ resources:
   - k8s/infra/kafka.yaml
   - k8s/infra/kafka-topics-job.yaml
   - k8s/infra/jaeger.yaml
+  - k8s/infra/prometheus.yaml
+  - k8s/infra/grafana.yaml
   - k8s/app/db-migration-job.yaml
   - k8s/app/user-rpc.yaml
   - k8s/app/interaction-rpc.yaml

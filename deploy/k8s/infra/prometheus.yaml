@@ -8,6 +8,9 @@ data:
     global:
       scrape_interval: 10s
 
+    rule_files:
+      - /etc/prometheus/rules/*.yaml
+
     scrape_configs:
       - job_name: 'gateway'
         static_configs:
@@ -48,6 +51,57 @@ data:
       - job_name: 'interaction-outbox'
         static_configs:
           - targets: ['interaction-outbox-svc:9100']
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: freeexchanged
+data:
+  worker-alerts.yaml: |
+    groups:
+      - name: freeexchanged-workers
+        rules:
+          - alert: ArticleOutboxPublishErrors
+            expr: increase(freeexchanged_article_outbox_publish_total{result="error"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Article outbox publish errors detected
+              description: Article outbox had Kafka publish errors in the last 5 minutes.
+          - alert: InteractionOutboxPublishErrors
+            expr: increase(freeexchanged_interaction_outbox_publish_total{result="error"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Interaction outbox publish errors detected
+              description: Interaction outbox had Kafka publish errors in the last 5 minutes.
+          - alert: OutboxLeaseLost
+            expr: increase(freeexchanged_article_outbox_lease_events_total{result=~"lost_.*"}[5m]) + increase(freeexchanged_interaction_outbox_lease_events_total{result=~"lost_.*"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Outbox lease lost events detected
+              description: At least one outbox worker lost an event lease during the last 5 minutes.
+          - alert: RankingStreamDLQEvents
+            expr: increase(freeexchanged_ranking_stream_messages_total{result=~"dlq|dlq_publish_error"}[5m]) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: Ranking stream sent messages to the DLQ
+              description: Ranking stream produced DLQ events in the last 5 minutes.
+          - alert: RankingStreamUnavailable
+            expr: min_over_time(up{job="ranking-stream"}[5m]) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Ranking stream metrics target is down
+              description: Prometheus could not scrape ranking-stream for at least 5 minutes.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -92,11 +146,17 @@ spec:
             memory: 1Gi
         volumeMounts:
         - name: prometheus-config
-          mountPath: /etc/prometheus
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+        - name: prometheus-alert-rules
+          mountPath: /etc/prometheus/rules
       volumes:
       - name: prometheus-config
         configMap:
           name: prometheus-config
+      - name: prometheus-alert-rules
+        configMap:
+          name: prometheus-alert-rules
 ---
 apiVersion: v1
 kind: Service

@@ -1,288 +1,266 @@
 {
-    "title": "FreeExchanged 微服务监控",
-    "uid": "freeexchanged-monitor",
-    "tags": [
-        "go-zero",
-        "microservice"
-    ],
-    "timezone": "browser",
-    "schemaVersion": 38,
-    "version": 1,
-    "refresh": "5s",
-    "time": {
-        "from": "now-15m",
-        "to": "now"
-    },
-    "panels": [
-        {
-            "id": 1,
-            "title": "Gateway HTTP QPS (每秒请求数)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 0
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "reqps",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "sum(rate(http_server_requests_duration_ms_count[1m])) by (path)",
-                    "legendFormat": "{{path}}",
-                    "refId": "A"
-                }
-            ]
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
         {
-            "id": 2,
-            "title": "Gateway HTTP 延迟 P99 (ms)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 0
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "ms",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_duration_ms_bucket[1m])) by (le, path))",
-                    "legendFormat": "P99 {{path}}",
-                    "refId": "A"
-                },
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_duration_ms_bucket[1m])) by (le, path))",
-                    "legendFormat": "P95 {{path}}",
-                    "refId": "B"
-                }
-            ]
-        },
-        {
-            "id": 3,
-            "title": "RPC Server QPS (每秒请求数)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 8
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "reqps",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "sum(rate(rpc_server_requests_duration_ms_count[1m])) by (instance, method)",
-                    "legendFormat": "{{instance}} - {{method}}",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 4,
-            "title": "RPC Server 延迟 P99 (ms)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 8
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "ms",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "histogram_quantile(0.99, sum(rate(rpc_server_requests_duration_ms_bucket[1m])) by (le, instance, method))",
-                    "legendFormat": "P99 {{instance}}-{{method}}",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 5,
-            "title": "Redis 操作 QPS",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 16
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "reqps",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "sum(rate(redis_client_requests_duration_ms_count[1m])) by (instance, command)",
-                    "legendFormat": "{{instance}} - {{command}}",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 6,
-            "title": "Redis 操作延迟 P99 (ms)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 16
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "ms",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "histogram_quantile(0.99, sum(rate(redis_client_requests_duration_ms_bucket[1m])) by (le, instance, command))",
-                    "legendFormat": "P99 {{instance}}-{{command}}",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 7,
-            "title": "各服务 Goroutine 数量",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 24
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "short",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "go_goroutines",
-                    "legendFormat": "{{job}}",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 8,
-            "title": "各服务内存占用 (MB)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 24
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "decmbytes",
-                    "color": {
-                        "mode": "palette-classic"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "go_memstats_heap_alloc_bytes / 1024 / 1024",
-                    "legendFormat": "{{job}} Heap",
-                    "refId": "A"
-                }
-            ]
-        },
-        {
-            "id": 9,
-            "title": "HTTP 错误率 (非200状态码)",
-            "type": "timeseries",
-            "gridPos": {
-                "h": 8,
-                "w": 24,
-                "x": 0,
-                "y": 32
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "unit": "reqps",
-                    "color": {
-                        "mode": "fixed",
-                        "fixedColor": "red"
-                    }
-                }
-            },
-            "targets": [
-                {
-                    "datasource": {
-                        "type": "prometheus"
-                    },
-                    "expr": "sum(rate(http_server_requests_code_total{code!=\"200\"}[1m])) by (path, code)",
-                    "legendFormat": "{{path}} [{{code}}]",
-                    "refId": "A"
-                }
-            ]
+          "expr": "sum(rate(http_server_requests_duration_ms_count[1m])) by (path)",
+          "legendFormat": "{{path}}",
+          "refId": "A"
         }
-    ]
+      ],
+      "title": "Gateway QPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum(rate(freeexchanged_article_outbox_claimed_events_total[1m]))",
+          "legendFormat": "article-outbox",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(freeexchanged_interaction_outbox_claimed_events_total[1m]))",
+          "legendFormat": "interaction-outbox",
+          "refId": "B"
+        }
+      ],
+      "title": "Outbox Claim Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum(increase(freeexchanged_article_outbox_publish_total{result=\"error\"}[5m]))",
+          "legendFormat": "article-outbox",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(freeexchanged_interaction_outbox_publish_total{result=\"error\"}[5m]))",
+          "legendFormat": "interaction-outbox",
+          "refId": "B"
+        }
+      ],
+      "title": "Outbox Publish Errors (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum(increase(freeexchanged_article_outbox_lease_events_total{result=~\"lost_.*\"}[5m]))",
+          "legendFormat": "article-outbox",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(freeexchanged_interaction_outbox_lease_events_total{result=~\"lost_.*\"}[5m]))",
+          "legendFormat": "interaction-outbox",
+          "refId": "B"
+        }
+      ],
+      "title": "Lease Lost Events (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "sum(increase(freeexchanged_ranking_stream_messages_total{result=~\"dlq|dlq_publish_error\"}[5m]))",
+          "legendFormat": "ranking-stream",
+          "refId": "A"
+        }
+      ],
+      "title": "Ranking DLQ Events (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(rate(freeexchanged_ranking_stream_messages_total[1m])) by (source, result)",
+          "legendFormat": "{{source}} / {{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Ranking Stream Results",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(freeexchanged_ranking_stream_message_duration_seconds_bucket[5m])) by (le, source, result))",
+          "legendFormat": "p95 {{source}} / {{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Ranking Stream P95 Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "up{job=~\"article-outbox|interaction-outbox|ranking-stream\"}",
+          "legendFormat": "{{job}} / {{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Worker Availability",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "freeexchanged",
+    "ops"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "FreeExchanged Operations",
+  "uid": "freeexchanged-ops",
+  "version": 1
 }

@@ -140,7 +140,11 @@ kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
 kubectl port-forward svc/prometheus-svc 9090:9090 -n freeexchanged
 ```
 
-Prometheus scrapes the RPC services plus `ranking-stream`, `article-outbox`, and `interaction-outbox`, so you can inspect worker throughput and failure counters directly in the Prometheus UI.
+Prometheus scrapes the RPC services plus `ranking-stream`, `article-outbox`, and `interaction-outbox`, so you can inspect worker throughput and failure counters directly in the Prometheus UI. The manifest also loads alert rules for outbox publish failures, lease-loss events, DLQ traffic, and `ranking-stream` availability.
+
+Grafana auto-provisions the Prometheus datasource and the `FreeExchanged Operations` dashboard on startup. After port-forwarding `grafana-svc`, log in with the admin password from `freeexchanged-secrets` and open the preloaded dashboard.
+
+These manifests do not include Alertmanager yet, so Prometheus alerts are visible in the Prometheus UI but are not routed to email, Slack, or PagerDuty.
 
 ## Production Hardening Backlog
 

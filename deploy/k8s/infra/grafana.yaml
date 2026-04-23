@@ -1,3 +1,312 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: freeexchanged
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-svc:9090
+        isDefault: true
+        editable: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-providers
+  namespace: freeexchanged
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: freeexchanged
+        orgId: 1
+        folder: FreeExchanged
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: freeexchanged
+data:
+  freeexchanged-ops.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "graphTooltip": 0,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "targets": [
+            {
+              "expr": "sum(rate(http_server_requests_duration_ms_count[1m])) by (path)",
+              "legendFormat": "{{path}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Gateway QPS",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 2,
+          "targets": [
+            {
+              "expr": "sum(rate(freeexchanged_article_outbox_claimed_events_total[1m]))",
+              "legendFormat": "article-outbox",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(freeexchanged_interaction_outbox_claimed_events_total[1m]))",
+              "legendFormat": "interaction-outbox",
+              "refId": "B"
+            }
+          ],
+          "title": "Outbox Claim Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 8
+          },
+          "id": 3,
+          "targets": [
+            {
+              "expr": "sum(increase(freeexchanged_article_outbox_publish_total{result=\"error\"}[5m]))",
+              "legendFormat": "article-outbox",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(increase(freeexchanged_interaction_outbox_publish_total{result=\"error\"}[5m]))",
+              "legendFormat": "interaction-outbox",
+              "refId": "B"
+            }
+          ],
+          "title": "Outbox Publish Errors (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 8
+          },
+          "id": 4,
+          "targets": [
+            {
+              "expr": "sum(increase(freeexchanged_article_outbox_lease_events_total{result=~\"lost_.*\"}[5m]))",
+              "legendFormat": "article-outbox",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(increase(freeexchanged_interaction_outbox_lease_events_total{result=~\"lost_.*\"}[5m]))",
+              "legendFormat": "interaction-outbox",
+              "refId": "B"
+            }
+          ],
+          "title": "Lease Lost Events (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 8
+          },
+          "id": 5,
+          "targets": [
+            {
+              "expr": "sum(increase(freeexchanged_ranking_stream_messages_total{result=~\"dlq|dlq_publish_error\"}[5m]))",
+              "legendFormat": "ranking-stream",
+              "refId": "A"
+            }
+          ],
+          "title": "Ranking DLQ Events (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 16
+          },
+          "id": 6,
+          "targets": [
+            {
+              "expr": "sum(rate(freeexchanged_ranking_stream_messages_total[1m])) by (source, result)",
+              "legendFormat": "{{source}} / {{result}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Ranking Stream Results",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 16
+          },
+          "id": 7,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(freeexchanged_ranking_stream_message_duration_seconds_bucket[5m])) by (le, source, result))",
+              "legendFormat": "p95 {{source}} / {{result}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Ranking Stream P95 Duration",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 24
+          },
+          "id": 8,
+          "targets": [
+            {
+              "expr": "up{job=~\"article-outbox|interaction-outbox|ranking-stream\"}",
+              "legendFormat": "{{job}} / {{instance}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Worker Availability",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "10s",
+      "schemaVersion": 39,
+      "style": "dark",
+      "tags": [
+        "freeexchanged",
+        "ops"
+      ],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-30m",
+        "to": "now"
+      },
+      "timezone": "browser",
+      "title": "FreeExchanged Operations",
+      "uid": "freeexchanged-ops",
+      "version": 1
+    }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,6 +352,26 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+        volumeMounts:
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources/datasource.yaml
+          subPath: datasource.yaml
+        - name: grafana-dashboard-providers
+          mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+          subPath: dashboards.yaml
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards/freeexchanged-ops.json
+          subPath: freeexchanged-ops.json
+      volumes:
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboard-providers
+        configMap:
+          name: grafana-dashboard-providers
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
 ---
 apiVersion: v1
 kind: Service
