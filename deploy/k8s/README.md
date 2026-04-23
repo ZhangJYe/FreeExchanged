@@ -5,7 +5,7 @@ This directory contains the Kubernetes manifests for the FreeExchanged backend s
 ## Components
 
 - `namespace.yaml`: creates the `freeexchanged` namespace.
-- `infra/`: MySQL, Redis, Kafka, Jaeger, Prometheus, Grafana, and runtime secrets.
+- `infra/`: MySQL, Redis, Kafka, Jaeger, Prometheus, Alertmanager, Grafana, and runtime secrets.
 - `app/`: gateway, RPC services, Go stream workers, the exchange-rate CronJob, and the database migration Job.
 - `ops/`: on-demand maintenance jobs such as ranking rebuild.
 - `deploy.sh`: applies resources in dependency order.
@@ -62,7 +62,7 @@ If your environment uses immutable `sha-<commit>` images, apply the rendered man
 
 ## Secrets
 
-Runtime secrets are not committed. Before running `deploy.sh`, export the required values or create `freeexchanged-secrets` with your own secret manager and run with `SKIP_SECRET_SYNC=1`.
+Runtime secrets are not committed. Before running `deploy.sh`, export the required values or create both `freeexchanged-secrets` and `alertmanager-config` with your own secret manager and run with `SKIP_SECRET_SYNC=1`.
 
 Required keys:
 
@@ -71,6 +71,12 @@ Required keys:
 - `MYSQL_DSN`
 - `PASETO_ACCESS_SECRET`
 - `GRAFANA_ADMIN_PASSWORD`
+- `ALERTMANAGER_SMTP_SMARTHOST`
+- `ALERTMANAGER_SMTP_USERNAME`
+- `ALERTMANAGER_SMTP_PASSWORD`
+- `ALERTMANAGER_EMAIL_FROM`
+
+`ALERTMANAGER_EMAIL_TO` defaults to `1844996881@qq.com` in `deploy.sh`. Override it if you want alerts to go somewhere else.
 
 Example:
 
@@ -80,6 +86,10 @@ export MYSQL_DATABASE='freeexchanged'
 export MYSQL_DSN='root:...@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai'
 export PASETO_ACCESS_SECRET='base64-encoded-32-byte-key'
 export GRAFANA_ADMIN_PASSWORD='...'
+export ALERTMANAGER_SMTP_SMARTHOST='smtp.qq.com:587'
+export ALERTMANAGER_SMTP_USERNAME='your-qq-mail@qq.com'
+export ALERTMANAGER_SMTP_PASSWORD='qq-mail-smtp-authorize-code'
+export ALERTMANAGER_EMAIL_FROM='your-qq-mail@qq.com'
 ```
 
 ## Deploy
@@ -106,6 +116,30 @@ kubectl create secret generic freeexchanged-secrets -n freeexchanged \
   --from-literal=PASETO_ACCESS_SECRET="$PASETO_ACCESS_SECRET" \
   --from-literal=GRAFANA_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
+cat <<EOF | kubectl create secret generic alertmanager-config -n freeexchanged \
+  --from-file=alertmanager.yml=/dev/stdin \
+  --dry-run=client -o yaml | kubectl apply -f -
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: '${ALERTMANAGER_SMTP_SMARTHOST}'
+  smtp_from: '${ALERTMANAGER_EMAIL_FROM}'
+  smtp_auth_username: '${ALERTMANAGER_SMTP_USERNAME}'
+  smtp_auth_password: '${ALERTMANAGER_SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+route:
+  receiver: email-notifications
+  group_by: ['alertname', 'job', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: email-notifications
+    email_configs:
+      - to: '${ALERTMANAGER_EMAIL_TO:-1844996881@qq.com}'
+        send_resolved: true
+EOF
 kubectl apply -f deploy/k8s/infra/
 kubectl apply -f deploy/k8s/app/db-migration-job.yaml
 kubectl apply -f deploy/k8s/app/
@@ -136,15 +170,16 @@ Local access:
 ```bash
 kubectl port-forward svc/gateway-svc 8888:8888 -n freeexchanged
 kubectl port-forward svc/grafana-svc 3000:3000 -n freeexchanged
+kubectl port-forward svc/alertmanager-svc 9093:9093 -n freeexchanged
 kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
 kubectl port-forward svc/prometheus-svc 9090:9090 -n freeexchanged
 ```
 
-Prometheus scrapes the RPC services plus `ranking-stream`, `article-outbox`, and `interaction-outbox`, so you can inspect worker throughput and failure counters directly in the Prometheus UI. The manifest also loads alert rules for outbox publish failures, lease-loss events, DLQ traffic, and `ranking-stream` availability.
+Prometheus scrapes the RPC services plus `ranking-stream`, `article-outbox`, and `interaction-outbox`, so you can inspect worker throughput and failure counters directly in the Prometheus UI. The manifest also loads alert rules for outbox publish failures, lease-loss events, DLQ traffic, and `ranking-stream` availability, then forwards them to Alertmanager.
 
 Grafana auto-provisions the Prometheus datasource and the `FreeExchanged Operations` dashboard on startup. After port-forwarding `grafana-svc`, log in with the admin password from `freeexchanged-secrets` and open the preloaded dashboard.
 
-These manifests do not include Alertmanager yet, so Prometheus alerts are visible in the Prometheus UI but are not routed to email, Slack, or PagerDuty.
+Alertmanager is configured by `deploy.sh` into the `alertmanager-config` secret and sends every firing/resolved alert to `1844996881@qq.com` by default. If you use QQ Mail as the sender, the SMTP password here must be the QQ Mail SMTP authorization code, not the web login password.
 
 ## Production Hardening Backlog
 

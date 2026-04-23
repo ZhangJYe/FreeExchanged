@@ -4,19 +4,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="freeexchanged"
 SECRET_NAME="freeexchanged-secrets"
+ALERTMANAGER_SECRET_NAME="alertmanager-config"
 IMAGE_REPOSITORY_PREFIX="${IMAGE_REPOSITORY_PREFIX:-freeexchanged}"
 IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
+ALERTMANAGER_EMAIL_TO="${ALERTMANAGER_EMAIL_TO:-1844996881@qq.com}"
 REQUIRED_SECRET_VARS=(
   MYSQL_ROOT_PASSWORD
   MYSQL_DATABASE
   MYSQL_DSN
   PASETO_ACCESS_SECRET
   GRAFANA_ADMIN_PASSWORD
+  ALERTMANAGER_SMTP_SMARTHOST
+  ALERTMANAGER_SMTP_USERNAME
+  ALERTMANAGER_SMTP_PASSWORD
+  ALERTMANAGER_EMAIL_FROM
 )
 
 sync_secret() {
   if [[ "${SKIP_SECRET_SYNC:-}" == "1" ]]; then
     kubectl get secret "$SECRET_NAME" -n "$NAMESPACE" >/dev/null
+    kubectl get secret "$ALERTMANAGER_SECRET_NAME" -n "$NAMESPACE" >/dev/null
     return
   fi
 
@@ -41,6 +48,36 @@ sync_secret() {
     --from-literal=PASETO_ACCESS_SECRET="$PASETO_ACCESS_SECRET" \
     --from-literal=GRAFANA_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
     --dry-run=client -o yaml | kubectl apply -f -
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+  cat >"$tmp_file" <<EOF
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: '${ALERTMANAGER_SMTP_SMARTHOST}'
+  smtp_from: '${ALERTMANAGER_EMAIL_FROM}'
+  smtp_auth_username: '${ALERTMANAGER_SMTP_USERNAME}'
+  smtp_auth_password: '${ALERTMANAGER_SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+route:
+  receiver: email-notifications
+  group_by: ['alertname', 'job', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: email-notifications
+    email_configs:
+      - to: '${ALERTMANAGER_EMAIL_TO}'
+        send_resolved: true
+EOF
+  kubectl create secret generic "$ALERTMANAGER_SECRET_NAME" \
+    -n "$NAMESPACE" \
+    --from-file=alertmanager.yml="$tmp_file" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  rm -f "$tmp_file"
 }
 
 set_app_images() {
@@ -73,6 +110,9 @@ echo "==> Waiting for infrastructure readiness"
 kubectl rollout status statefulset/mysql -n "$NAMESPACE" --timeout=180s
 kubectl rollout status statefulset/kafka -n "$NAMESPACE" --timeout=180s
 kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/alertmanager -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/prometheus -n "$NAMESPACE" --timeout=90s
+kubectl rollout status deployment/grafana -n "$NAMESPACE" --timeout=90s
 kubectl wait --for=condition=complete job/kafka-topic-init -n "$NAMESPACE" --timeout=180s
 
 echo "==> [3/4] Run database migration"
@@ -113,4 +153,5 @@ echo "Deployment completed."
 echo "Web ingress:       route your domain to the ingress controller for /, /v1, and /ws"
 echo "Gateway ClusterIP: $(kubectl get svc gateway-svc -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}'):8888"
 echo "Grafana:           kubectl port-forward svc/grafana-svc 3000:3000 -n $NAMESPACE"
+echo "Alertmanager:      kubectl port-forward svc/alertmanager-svc 9093:9093 -n $NAMESPACE"
 echo "Jaeger UI:         kubectl port-forward svc/jaeger-svc 16686:16686 -n $NAMESPACE"

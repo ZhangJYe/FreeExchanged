@@ -8,6 +8,11 @@ data:
     global:
       scrape_interval: 10s
 
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager-svc:9093']
+
     rule_files:
       - /etc/prometheus/rules/*.yaml
 
