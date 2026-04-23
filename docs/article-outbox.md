@@ -34,4 +34,4 @@ go run ./app/article/cmd/outbox -f app/article/cmd/outbox/etc/outbox.yaml
 
 ## Kubernetes
 
-`deploy/k8s/app/article-outbox.yaml` deploys one worker replica. Keep it at one replica until row claiming is added, or add a `processing` state with `SELECT ... FOR UPDATE SKIP LOCKED` before scaling horizontally.
+`deploy/k8s/app/article-outbox.yaml` deploys two worker replicas. Each worker claims rows with `status=processing`, `locked_by`, and `locked_until` before publishing, so replicas do not intentionally process the same pending row. Delivery remains at-least-once if Kafka succeeds but the sent marker update fails.

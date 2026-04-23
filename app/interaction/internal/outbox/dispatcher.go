@@ -22,7 +22,7 @@ const (
 type Config struct {
 	DataSource          string
 	PollIntervalSeconds int `json:",default=2"`
-	BatchSize           int `json:",default=50"`
+	BatchSize           int `json:",default=100"`
 	ClaimTimeoutSeconds int `json:",default=30"`
 	Kafka               struct {
 		Brokers []string
@@ -49,13 +49,14 @@ type Event struct {
 func NewDispatcher(c Config) *Dispatcher {
 	batchSize := c.BatchSize
 	if batchSize <= 0 {
-		batchSize = 50
+		batchSize = 100
 	}
 
 	intervalSeconds := c.PollIntervalSeconds
 	if intervalSeconds <= 0 {
 		intervalSeconds = 2
 	}
+
 	claimTimeoutSeconds := c.ClaimTimeoutSeconds
 	if claimTimeoutSeconds <= 0 {
 		claimTimeoutSeconds = 30
@@ -73,7 +74,7 @@ func NewDispatcher(c Config) *Dispatcher {
 }
 
 func (d *Dispatcher) Run(ctx context.Context) {
-	logx.Info("article outbox dispatcher started")
+	logx.Info("interaction outbox dispatcher started")
 	defer d.Close()
 
 	ticker := time.NewTicker(d.interval)
@@ -99,7 +100,7 @@ func (d *Dispatcher) Close() {
 func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 	pending, err := d.claimPending(ctx)
 	if err != nil {
-		logx.Errorf("load article outbox events failed: %v", err)
+		logx.Errorf("load interaction outbox events failed: %v", err)
 		return
 	}
 
@@ -109,22 +110,22 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 		}
 
 		if err := d.publish(ctx, event); err != nil {
-			logx.Errorf("publish article outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
+			logx.Errorf("publish interaction outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
 			if markErr := d.markFailed(ctx, event.ID, err); markErr != nil {
-				logx.Errorf("mark article outbox event id=%d failed: %v", event.ID, markErr)
+				logx.Errorf("mark interaction outbox event id=%d failed: %v", event.ID, markErr)
 			}
 			continue
 		}
 
 		if err := d.markSent(ctx, event.ID); err != nil {
-			logx.Errorf("mark article outbox event id=%d sent failed: %v", event.ID, err)
+			logx.Errorf("mark interaction outbox event id=%d sent failed: %v", event.ID, err)
 		}
 	}
 }
 
 func (d *Dispatcher) claimPending(ctx context.Context) ([]Event, error) {
 	if _, err := d.conn.ExecCtx(ctx, `
-UPDATE article_outbox_events
+UPDATE interaction_outbox_events
 SET status = ?, locked_by = ?, locked_until = ?, update_time = NOW()
 WHERE
   (status = ? AND next_retry_at <= NOW())
@@ -137,7 +138,7 @@ LIMIT ?`, statusProcessing, d.workerID, time.Now().Add(d.claimTTL), statusPendin
 	var pending []Event
 	err := d.conn.QueryRowsCtx(ctx, &pending, `
 SELECT id, topic, event_key, CAST(payload AS CHAR) AS payload
-FROM article_outbox_events
+FROM interaction_outbox_events
 WHERE status = ? AND locked_by = ?
 ORDER BY id
 LIMIT ?`, statusProcessing, d.workerID, d.batchSize)
@@ -155,7 +156,7 @@ func (d *Dispatcher) publish(ctx context.Context, event Event) error {
 
 func (d *Dispatcher) markSent(ctx context.Context, id int64) error {
 	_, err := d.conn.ExecCtx(ctx, `
-UPDATE article_outbox_events
+UPDATE interaction_outbox_events
 SET status = ?, locked_by = '', locked_until = NULL, last_error = '', update_time = NOW()
 WHERE id = ? AND locked_by = ?`, statusSent, id, d.workerID)
 	return err
@@ -178,7 +179,7 @@ func (d *Dispatcher) markFailed(ctx context.Context, id int64, publishErr error)
 	}
 
 	_, err = d.conn.ExecCtx(ctx, `
-UPDATE article_outbox_events
+UPDATE interaction_outbox_events
 SET status = ?, retry_count = retry_count + 1, last_error = ?, next_retry_at = ?, locked_by = '', locked_until = NULL, update_time = NOW()
 WHERE id = ? AND locked_by = ?`, statusPending, message, time.Now().Add(time.Duration(delaySeconds)*time.Second), id, d.workerID)
 	return err
@@ -188,7 +189,7 @@ func (d *Dispatcher) retryCount(ctx context.Context, id int64) (int, error) {
 	var retryCount int
 	if err := d.conn.QueryRowCtx(ctx, &retryCount, `
 SELECT retry_count
-FROM article_outbox_events
+FROM interaction_outbox_events
 WHERE id = ?`, id); err != nil {
 		return 0, fmt.Errorf("query retry count: %w", err)
 	}

@@ -28,6 +28,7 @@ Build and push these images before running the manifests:
 - `freeexchanged/article-rpc:latest`
 - `freeexchanged/article-outbox:latest`
 - `freeexchanged/interaction-rpc:latest`
+- `freeexchanged/interaction-outbox:latest`
 - `freeexchanged/ranking-stream:latest`
 - `freeexchanged/ranking-rpc:latest`
 - `freeexchanged/rate-rpc:latest`

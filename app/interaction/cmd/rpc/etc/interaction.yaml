@@ -13,6 +13,4 @@ Telemetry:
   Batcher: otlphttp
   OtlpHttpPath: /v1/traces
 
-Kafka:
-  Brokers:
-    - 127.0.0.1:9092
+DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai

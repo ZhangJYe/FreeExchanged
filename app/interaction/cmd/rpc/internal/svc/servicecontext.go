@@ -2,18 +2,19 @@ package svc
 
 import (
 	"freeexchanged/app/interaction/cmd/rpc/internal/config"
-	"freeexchanged/pkg/events"
-	"freeexchanged/pkg/eventstream"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type ServiceContext struct {
-	Config        config.Config
-	EventProducer *eventstream.Producer
+	Config config.Config
+	Conn   sqlx.SqlConn
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
-		Config:        c,
-		EventProducer: eventstream.NewProducer(eventstream.KafkaConf{Brokers: c.Kafka.Brokers}, events.TopicInteractionEvents),
+		Config: c,
+		Conn:   sqlx.NewMysql(c.DataSource),
 	}
 }

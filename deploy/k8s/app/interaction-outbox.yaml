@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: article-outbox-config
+  name: interaction-outbox-config
   namespace: freeexchanged
 data:
   outbox.yaml: |
     DataSource: ${MYSQL_DSN}
     PollIntervalSeconds: 2
-    BatchSize: 50
+    BatchSize: 100
     ClaimTimeoutSeconds: 30
 
     Kafka:
@@ -17,22 +17,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: article-outbox
+  name: interaction-outbox
   namespace: freeexchanged
 spec:
   revisionHistoryLimit: 3
   replicas: 2
   selector:
     matchLabels:
-      app: article-outbox
+      app: interaction-outbox
   template:
     metadata:
       labels:
-        app: article-outbox
+        app: interaction-outbox
     spec:
       containers:
-      - name: article-outbox
-        image: freeexchanged/article-outbox:latest
+      - name: interaction-outbox
+        image: freeexchanged/interaction-outbox:latest
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:
@@ -50,4 +50,4 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: article-outbox-config
+          name: interaction-outbox-config

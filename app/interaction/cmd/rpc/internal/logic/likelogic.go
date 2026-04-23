@@ -5,7 +5,6 @@ import (
 
 	"freeexchanged/app/interaction/cmd/rpc/internal/svc"
 	"freeexchanged/app/interaction/cmd/rpc/pb"
-	"freeexchanged/pkg/events"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,11 +24,16 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 }
 
 func (l *LikeLogic) Like(in *pb.LikeReq) (*pb.LikeResp, error) {
-	if err := publishInteractionEvent(l.ctx, l.svcCtx.EventProducer, events.EventInteractionLike, in.UserId, in.ArticleId); err != nil {
-		l.Logger.Errorf("Like: publish msg error: %v", err)
+	changed, err := recordLike(l.ctx, l.svcCtx.Conn, in.UserId, in.ArticleId)
+	if err != nil {
+		l.Logger.Errorf("Like: record state error: %v", err)
 		return nil, err
 	}
+	if !changed {
+		l.Logger.Infof("Like ignored because state already liked: uid=%d, aid=%d", in.UserId, in.ArticleId)
+		return &pb.LikeResp{}, nil
+	}
 
-	l.Logger.Infof("Like event published: uid=%d, aid=%d", in.UserId, in.ArticleId)
+	l.Logger.Infof("Like event enqueued: uid=%d, aid=%d", in.UserId, in.ArticleId)
 	return &pb.LikeResp{}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"freeexchanged/app/gateway/internal/middleware"
 	"freeexchanged/app/gateway/internal/svc"
@@ -43,6 +44,11 @@ func HandleWS(svcCtx *svc.ServiceContext, w http.ResponseWriter, r *http.Request
 	}
 
 	userId := payload.UserID
+	conn.SetReadLimit(1024)
+	_ = conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(pongWait))
+	})
 	Hub.Add(userId, conn)
 	go readLoop(userId, conn)
 }

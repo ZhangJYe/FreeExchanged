@@ -20,9 +20,7 @@ data:
       Batcher: otlphttp
       OtlpHttpPath: /v1/traces
 
-    Kafka:
-      Brokers:
-        - kafka-svc:9092
+    DataSource: ${MYSQL_DSN}
 ---
 apiVersion: apps/v1
 kind: Deployment
