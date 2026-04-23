@@ -2,7 +2,7 @@
 
 ## Scope
 
-This phase removes the Kubernetes RabbitMQ deployment and replaces it with a single-node Kafka KRaft deployment for the current project environment.
+This phase removes the Kubernetes RabbitMQ deployment path and replaces it with Kafka KRaft infrastructure for the current project environment.
 
 Added resources:
 
@@ -16,23 +16,27 @@ Removed resource:
 ## Runtime Topology
 
 ```text
-article-rpc ----------> Kafka topic: article.events
-interaction-rpc ------> Kafka topic: interaction.events
-ranking-rpc ----------> Kafka consumer groups
-ranking-rpc ----------> Redis sorted set: ranking:hot
+article-rpc ----------> article_outbox_events
+interaction-rpc ------> interaction_outbox_events
+outbox workers -------> Kafka topics
+ranking-stream -------> Redis sorted set: ranking:hot
+ranking-rpc ----------> Redis read API
 ```
 
 ## Kafka Settings
 
 The manifest uses Bitnami Kafka in KRaft mode:
 
-- One broker/controller for development and small demo clusters.
+- Three broker/controllers in the standard K8s manifests.
+- The K3s lite overlay intentionally scales Kafka down to one broker for small single-node demos.
 - Internal service: `kafka-svc:9092`.
 - Headless service: `kafka-headless` for StatefulSet identity.
 - Persistent volume: `5Gi`.
-- Topic initialization Job creates:
+- Topic initialization Job creates and verifies:
   - `article.events`
   - `interaction.events`
+  - `ranking.dlq`
+- Standard topic settings are three partitions, replication factor 3, and `min.insync.replicas=2`.
 
 ## Deployment Script Changes
 
@@ -46,10 +50,10 @@ The manifest uses Bitnami Kafka in KRaft mode:
 
 ## Production Notes
 
-The current Kafka manifest is intentionally small. For production, prefer one of these:
+For larger production deployments, prefer one of these:
 
 - Managed Kafka from the cloud provider.
 - Strimzi Kafka Operator.
-- A three-broker StatefulSet with proper storage, rack awareness, and replication factor greater than one.
+- A hardened self-managed StatefulSet with rack awareness, monitoring, backup, and tested partition reassignment runbooks.
 
 Keep the app-facing contract stable: producers and consumers only depend on `kafka-svc:9092` and topic names.

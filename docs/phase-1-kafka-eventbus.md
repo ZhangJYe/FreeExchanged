@@ -4,14 +4,15 @@
 
 This phase replaces the application event bus from RabbitMQ to Kafka for the current online ranking flow.
 
-Changed producers:
+Changed event writers:
 
-- `article-rpc` publishes article lifecycle events to `article.events`.
-- `interaction-rpc` publishes like, unlike, and read events to `interaction.events`.
+- `article-rpc` writes article lifecycle events to `article_outbox_events` in the same MySQL transaction as the article row.
+- `interaction-rpc` writes like, unlike, and read events to `interaction_outbox_events` after recording idempotent interaction state.
+- `article-outbox` and `interaction-outbox` publish pending rows to Kafka.
 
 Changed consumer:
 
-- `ranking-rpc` consumes both Kafka topics and updates Redis key `ranking:hot`.
+- `ranking-stream` consumes both Kafka topics and updates Redis key `ranking:hot`.
 
 ## Topic Contract
 
@@ -19,6 +20,7 @@ Topics:
 
 - `article.events`
 - `interaction.events`
+- `ranking.dlq`
 
 Article event example:
 
@@ -49,7 +51,7 @@ Interaction event example:
 
 ## Ranking Semantics
 
-`ranking-rpc` keeps the existing Redis output:
+`ranking-stream` keeps the existing Redis output:
 
 - New article: `ZADD ranking:hot <occurred_at> <article_id>`
 - Like: `ZINCRBY ranking:hot 10 <article_id>`
@@ -77,5 +79,6 @@ Kafka:
 ## Notes
 
 - This phase keeps JSON payloads for readability and low migration cost.
-- Consumer offset handling follows Kafka consumer groups.
-- The next phase will replace the Kubernetes RabbitMQ manifest with Kafka infrastructure.
+- `ranking-stream` uses Kafka consumer groups with manual offset commits after Redis updates succeed.
+- Poison messages are retried and then published to `ranking.dlq` before the source offset is committed.
+- Kubernetes manifests now use Kafka infrastructure directly; RabbitMQ is no longer part of the deployment path.
