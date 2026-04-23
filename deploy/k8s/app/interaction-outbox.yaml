@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: interaction-outbox
-        image: freeexchanged/interaction-outbox:latest
+        image: freeexchanged/interaction-outbox:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

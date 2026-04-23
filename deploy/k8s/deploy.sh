@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="freeexchanged"
 SECRET_NAME="freeexchanged-secrets"
+IMAGE_REPOSITORY_PREFIX="${IMAGE_REPOSITORY_PREFIX:-freeexchanged}"
+IMAGE_TAG="${IMAGE_TAG:-v0.1.0}"
 REQUIRED_SECRET_VARS=(
   MYSQL_ROOT_PASSWORD
   MYSQL_DATABASE
@@ -41,6 +43,22 @@ sync_secret() {
     --dry-run=client -o yaml | kubectl apply -f -
 }
 
+set_app_images() {
+  echo "==> Set application image tag: $IMAGE_TAG"
+  kubectl set image deployment/gateway -n "$NAMESPACE" gateway="$IMAGE_REPOSITORY_PREFIX/gateway:$IMAGE_TAG"
+  kubectl set image deployment/user-rpc -n "$NAMESPACE" user-rpc="$IMAGE_REPOSITORY_PREFIX/user-rpc:$IMAGE_TAG"
+  kubectl set image deployment/interaction-rpc -n "$NAMESPACE" interaction-rpc="$IMAGE_REPOSITORY_PREFIX/interaction-rpc:$IMAGE_TAG"
+  kubectl set image deployment/article-rpc -n "$NAMESPACE" article-rpc="$IMAGE_REPOSITORY_PREFIX/article-rpc:$IMAGE_TAG"
+  kubectl set image deployment/article-outbox -n "$NAMESPACE" article-outbox="$IMAGE_REPOSITORY_PREFIX/article-outbox:$IMAGE_TAG"
+  kubectl set image deployment/interaction-outbox -n "$NAMESPACE" interaction-outbox="$IMAGE_REPOSITORY_PREFIX/interaction-outbox:$IMAGE_TAG"
+  kubectl set image deployment/ranking-stream -n "$NAMESPACE" ranking-stream="$IMAGE_REPOSITORY_PREFIX/ranking-stream:$IMAGE_TAG"
+  kubectl set image deployment/ranking-rpc -n "$NAMESPACE" ranking-rpc="$IMAGE_REPOSITORY_PREFIX/ranking-rpc:$IMAGE_TAG"
+  kubectl set image deployment/rate-rpc -n "$NAMESPACE" rate-rpc="$IMAGE_REPOSITORY_PREFIX/rate-rpc:$IMAGE_TAG"
+  kubectl set image deployment/watchlist-rpc -n "$NAMESPACE" watchlist-rpc="$IMAGE_REPOSITORY_PREFIX/watchlist-rpc:$IMAGE_TAG"
+  kubectl set image deployment/web -n "$NAMESPACE" web="$IMAGE_REPOSITORY_PREFIX/web:$IMAGE_TAG"
+  kubectl set image cronjob/rate-job -n "$NAMESPACE" rate-job="$IMAGE_REPOSITORY_PREFIX/rate-job:$IMAGE_TAG"
+}
+
 echo "==> [1/4] Apply namespace"
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
 
@@ -75,6 +93,7 @@ kubectl apply -f "$SCRIPT_DIR/app/article-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/watchlist-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/web.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/gateway.yaml"
+set_app_images
 
 echo "==> Waiting for application readiness"
 kubectl rollout status deployment/rate-rpc -n "$NAMESPACE" --timeout=120s

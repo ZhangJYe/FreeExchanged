@@ -47,7 +47,7 @@ spec:
     spec:
       containers:
       - name: ranking-rpc
-        image: freeexchanged/ranking-rpc:latest
+        image: freeexchanged/ranking-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

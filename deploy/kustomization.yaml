@@ -142,15 +142,61 @@ patches:
           until kafka-topics.sh --bootstrap-server kafka-svc:9092 --list >/dev/null 2>&1; do
             sleep 2
           done
+          expected_partitions=3
+          expected_rf=1
+          expected_min_isr=1
           for topic in article.events interaction.events ranking.dlq; do
             kafka-topics.sh \
               --bootstrap-server kafka-svc:9092 \
               --create \
               --if-not-exists \
               --topic "$topic" \
-              --partitions 3 \
-              --replication-factor 1 \
-              --config min.insync.replicas=1
+              --partitions "$expected_partitions" \
+              --replication-factor "$expected_rf" \
+              --config min.insync.replicas="$expected_min_isr"
+
+            kafka-configs.sh \
+              --bootstrap-server kafka-svc:9092 \
+              --alter \
+              --entity-type topics \
+              --entity-name "$topic" \
+              --add-config min.insync.replicas="$expected_min_isr"
+
+            desc="$(kafka-topics.sh --bootstrap-server kafka-svc:9092 --describe --topic "$topic")"
+            echo "$desc"
+            partitions="$(printf '%s\n' "$desc" | awk -F'PartitionCount: ' '/PartitionCount:/ { split($2, a, " "); print a[1]; exit }')"
+            if [ -z "$partitions" ]; then
+              echo "unable to read partition count for topic $topic" >&2
+              exit 1
+            fi
+            if [ "$partitions" -lt "$expected_partitions" ]; then
+              kafka-topics.sh --bootstrap-server kafka-svc:9092 --alter --topic "$topic" --partitions "$expected_partitions"
+              desc="$(kafka-topics.sh --bootstrap-server kafka-svc:9092 --describe --topic "$topic")"
+              echo "$desc"
+              partitions="$(printf '%s\n' "$desc" | awk -F'PartitionCount: ' '/PartitionCount:/ { split($2, a, " "); print a[1]; exit }')"
+              if [ -z "$partitions" ]; then
+                echo "unable to read partition count for topic $topic after alter" >&2
+                exit 1
+              fi
+            fi
+
+            rf="$(printf '%s\n' "$desc" | awk -F'ReplicationFactor: ' '/ReplicationFactor:/ { split($2, a, " "); print a[1]; exit }')"
+            if [ -z "$rf" ]; then
+              echo "unable to read replication factor for topic $topic" >&2
+              exit 1
+            fi
+            if [ "$rf" != "$expected_rf" ]; then
+              echo "topic $topic replication factor is $rf, expected $expected_rf for the K3s lite overlay" >&2
+              exit 1
+            fi
+            if [ "$partitions" -lt "$expected_partitions" ]; then
+              echo "topic $topic partition count is $partitions, expected at least $expected_partitions" >&2
+              exit 1
+            fi
+            if ! kafka-configs.sh --bootstrap-server kafka-svc:9092 --describe --entity-type topics --entity-name "$topic" | grep -q "min.insync.replicas=$expected_min_isr"; then
+              echo "topic $topic min.insync.replicas is not $expected_min_isr" >&2
+              exit 1
+            fi
           done
   - target:
       kind: PodDisruptionBudget

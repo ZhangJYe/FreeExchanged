@@ -155,16 +155,14 @@ type PublishEvent struct {
 func (c *Consumer) handleArticleMessage(body []byte) error {
 	var event PublishEvent
 	if err := json.Unmarshal(body, &event); err != nil {
-		logx.Errorf("error decoding article event: %v", err)
-		return nil
+		return fmt.Errorf("decode article event: %w", err)
 	}
 
 	if event.EventType != events.EventArticlePublished && event.EventType != "publish" {
-		return nil
+		return fmt.Errorf("unknown article event type: %s", event.EventType)
 	}
 	if event.ArticleID <= 0 {
-		logx.Errorf("article event missing article_id")
-		return nil
+		return fmt.Errorf("article event missing article_id")
 	}
 
 	score := event.OccurredAt
@@ -191,12 +189,16 @@ type InteractionEvent struct {
 func (c *Consumer) handleInteractionMessage(body []byte) error {
 	var event InteractionEvent
 	if err := json.Unmarshal(body, &event); err != nil {
-		logx.Errorf("error decoding interaction event: %v", err)
-		return nil
+		return fmt.Errorf("decode interaction event: %w", err)
 	}
 	if event.ArticleID <= 0 {
-		logx.Errorf("interaction event missing article_id")
-		return nil
+		return fmt.Errorf("interaction event missing article_id")
+	}
+	if event.UserID <= 0 {
+		return fmt.Errorf("interaction event missing user_id")
+	}
+	if event.EventID == "" {
+		return fmt.Errorf("interaction event missing event_id")
 	}
 
 	delta := int64(0)
@@ -208,8 +210,7 @@ func (c *Consumer) handleInteractionMessage(body []byte) error {
 	case events.EventInteractionRead, "read":
 		delta = 1
 	default:
-		logx.Errorf("unknown interaction event type: %s", event.EventType)
-		return nil
+		return fmt.Errorf("unknown interaction event type: %s", event.EventType)
 	}
 
 	articleID := fmt.Sprintf("%d", event.ArticleID)

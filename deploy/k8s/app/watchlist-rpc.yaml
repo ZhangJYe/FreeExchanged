@@ -57,7 +57,7 @@ spec:
     spec:
       containers:
       - name: watchlist-rpc
-        image: freeexchanged/watchlist-rpc:latest
+        image: freeexchanged/watchlist-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

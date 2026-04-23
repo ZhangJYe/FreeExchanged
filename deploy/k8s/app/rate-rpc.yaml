@@ -47,7 +47,7 @@ spec:
     spec:
       containers:
       - name: rate-rpc
-        image: freeexchanged/rate-rpc:latest
+        image: freeexchanged/rate-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

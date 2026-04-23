@@ -28,6 +28,10 @@ data:
       AccessSecret: "${PASETO_ACCESS_SECRET}"
       AccessExpire: 86400
 
+    RateLimit:
+      LikeLimit: 10
+      LikeWindowSeconds: 1
+
     UserRpc:
       Endpoints:
         - user-rpc-svc:8080
@@ -88,7 +92,7 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: freeexchanged/gateway:latest
+        image: freeexchanged/gateway:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

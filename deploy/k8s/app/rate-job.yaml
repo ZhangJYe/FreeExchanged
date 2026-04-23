@@ -32,7 +32,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: rate-job
-            image: freeexchanged/rate-job:latest
+            image: freeexchanged/rate-job:v0.1.0
             imagePullPolicy: IfNotPresent
             envFrom:
             - secretRef:

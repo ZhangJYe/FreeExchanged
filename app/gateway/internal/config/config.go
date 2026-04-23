@@ -12,6 +12,10 @@ type Config struct {
 		AccessSecret string
 		AccessExpire int64
 	}
+	RateLimit struct {
+		LikeLimit         int `json:",default=10"`
+		LikeWindowSeconds int `json:",default=1"`
+	}
 	Redis          redis.RedisConf
 	UserRpc        zrpc.RpcClientConf
 	InteractionRpc zrpc.RpcClientConf

@@ -40,7 +40,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:              c,
 		PasetoMiddleware:    middleware.NewPasetoMiddleware(maker, rds).Handle,
-		RateLimitMiddleware: middleware.NewRateLimitMiddleware(10, 100).Handle, // 限制10QPS，突发100
+		RateLimitMiddleware: middleware.NewRateLimitMiddleware(rds, c.RateLimit.LikeLimit, c.RateLimit.LikeWindowSeconds).Handle,
 		UserRpc:             userclient.NewUser(zrpc.MustNewClient(c.UserRpc)),
 		InteractionRpc:      interactionclient.NewInteraction(zrpc.MustNewClient(c.InteractionRpc)),
 		RankingRpc:          rankingclient.NewRanking(zrpc.MustNewClient(c.RankingRpc)),

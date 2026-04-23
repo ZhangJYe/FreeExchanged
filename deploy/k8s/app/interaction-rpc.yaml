@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
       - name: interaction-rpc
-        image: freeexchanged/interaction-rpc:latest
+        image: freeexchanged/interaction-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

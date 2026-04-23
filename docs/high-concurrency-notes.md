@@ -23,6 +23,8 @@ gateway
 - WebSocket broadcasts use per-connection buffered write queues and write deadlines. Slow clients are dropped instead of blocking all broadcasts.
 - Redis uses AOF persistence with a PVC so the online ranking cache survives Pod restarts.
 - The standard K8s Kafka manifest runs three brokers with replication factor 3 and min in-sync replicas 2; the K3s lite overlay intentionally scales this down for small single-node environments.
+- Kafka topic initialization verifies existing topic partition and replication settings. If a production topic was created with replication factor 1, deployment fails instead of silently running with weak durability.
+- Gateway like/unlike traffic is rate-limited in Redis per user, with IP fallback, so limits are shared across gateway replicas without one user consuming a Pod-wide bucket.
 
 ## Next Useful Benchmarks
 

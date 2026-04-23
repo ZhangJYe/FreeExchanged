@@ -26,6 +26,10 @@ Identity:
   AccessSecret: "yNgBwFodlqorfsT21cTjdafFVhU3lXUKBq9OBNW8IHU="
   AccessExpire: 86400
 
+RateLimit:
+  LikeLimit: 10
+  LikeWindowSeconds: 1
+
 # --- User RPC Client ---
 UserRpc:
   Endpoints:

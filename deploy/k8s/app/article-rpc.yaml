@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
       - name: article-rpc
-        image: freeexchanged/article-rpc:latest
+        image: freeexchanged/article-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

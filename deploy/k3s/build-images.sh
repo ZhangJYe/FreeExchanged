@@ -46,6 +46,6 @@ build_web_image freeexchanged/web:k3s /free/
 import_third_party_image mysql:8.0
 import_third_party_image redis:alpine
 import_third_party_image bitnami/kafka:3.7
-import_third_party_image jaegertracing/all-in-one:latest
+import_third_party_image jaegertracing/all-in-one:1.57
 
 echo "All images built and imported into k3s."

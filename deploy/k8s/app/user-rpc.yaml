@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
       - name: user-rpc
-        image: freeexchanged/user-rpc:latest
+        image: freeexchanged/user-rpc:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:

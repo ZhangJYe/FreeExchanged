@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: freeexchanged/web:latest
+        image: freeexchanged/web:v0.1.0
         imagePullPolicy: IfNotPresent
         ports:
         - name: http

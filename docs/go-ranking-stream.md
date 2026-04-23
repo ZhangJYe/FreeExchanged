@@ -46,7 +46,7 @@ Flink and Hive are JVM-centric systems. They are useful for large-scale streamin
 2. Apply Redis update.
 3. Commit offset only after Redis succeeds.
 
-Malformed or unsupported events are logged and committed so they do not block the stream. Redis failures are retried before committing.
+Malformed or unsupported events return processing errors, use the same retry budget as Redis failures, and then move to `ranking.dlq`.
 
 After repeated processing failures, `ranking-stream` writes the original Kafka message and error metadata to `ranking.dlq`, then commits the source offset. This keeps one bad event from blocking an entire partition while preserving the payload for inspection and replay.
 

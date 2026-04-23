@@ -25,20 +25,24 @@ The default K8s manifests run Kafka as a three-broker KRaft cluster and Redis wi
 
 Build and push these images before running the manifests:
 
-- `freeexchanged/gateway:latest`
-- `freeexchanged/user-rpc:latest`
-- `freeexchanged/article-rpc:latest`
-- `freeexchanged/article-outbox:latest`
-- `freeexchanged/interaction-rpc:latest`
-- `freeexchanged/interaction-outbox:latest`
-- `freeexchanged/ranking-stream:latest`
-- `freeexchanged/ranking-rpc:latest`
-- `freeexchanged/rate-rpc:latest`
-- `freeexchanged/watchlist-rpc:latest`
-- `freeexchanged/rate-job:latest`
-- `freeexchanged/web:latest`
+- `freeexchanged/gateway:v0.1.0`
+- `freeexchanged/user-rpc:v0.1.0`
+- `freeexchanged/article-rpc:v0.1.0`
+- `freeexchanged/article-outbox:v0.1.0`
+- `freeexchanged/interaction-rpc:v0.1.0`
+- `freeexchanged/interaction-outbox:v0.1.0`
+- `freeexchanged/ranking-stream:v0.1.0`
+- `freeexchanged/ranking-rpc:v0.1.0`
+- `freeexchanged/rate-rpc:v0.1.0`
+- `freeexchanged/watchlist-rpc:v0.1.0`
+- `freeexchanged/rate-job:v0.1.0`
+- `freeexchanged/web:v0.1.0`
 
-For production, replace `latest` with immutable version tags.
+The CI workflow builds immutable `sha-<commit>` image tags and uploads rendered K8s manifests with those tags. For manual deploys, pass the tag explicitly:
+
+```bash
+IMAGE_TAG=sha-xxxxxxxxxxxx bash deploy/k8s/deploy.sh
+```
 
 ## Secrets
 
@@ -120,7 +124,7 @@ kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
 
 ## Production Hardening Backlog
 
-- Add CI image build and manifest tag replacement.
+- Add image provenance/signing and promotion gates.
 - Replace raw Secret manifests with a secret-management controller.
 - Add Ingress, TLS, and external DNS.
 - Add HPA after observing CPU, memory, and request metrics.

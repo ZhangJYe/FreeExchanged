@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: article-outbox
-        image: freeexchanged/article-outbox:latest
+        image: freeexchanged/article-outbox:v0.1.0
         imagePullPolicy: IfNotPresent
         envFrom:
         - secretRef:
