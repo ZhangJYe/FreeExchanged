@@ -119,13 +119,16 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 			continue
 		}
 
+		stopLeaseHeartbeat := d.startLeaseHeartbeat(ctx, event.ID)
 		if err := d.publish(ctx, event); err != nil {
+			stopLeaseHeartbeat()
 			logx.Errorf("publish interaction outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
 			if markErr := d.markFailed(ctx, event.ID, err); markErr != nil {
 				logx.Errorf("mark interaction outbox event id=%d failed: %v", event.ID, markErr)
 			}
 			continue
 		}
+		stopLeaseHeartbeat()
 
 		if err := d.markSent(ctx, event.ID); err != nil {
 			logx.Errorf("mark interaction outbox event id=%d sent failed: %v", event.ID, err)
@@ -178,6 +181,45 @@ WHERE id = ? AND status = ? AND locked_by = ?`, time.Now().Add(d.claimTTL), id, 
 		return false, err
 	}
 	return affected > 0, nil
+}
+
+func (d *Dispatcher) startLeaseHeartbeat(ctx context.Context, id int64) func() {
+	interval := d.claimTTL / 3
+	if interval < time.Second {
+		interval = time.Second
+	}
+
+	heartbeatCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-heartbeatCtx.Done():
+				return
+			case <-ticker.C:
+				held, err := d.extendLease(heartbeatCtx, id)
+				if err != nil {
+					logx.Errorf("extend interaction outbox event id=%d heartbeat failed: %v", id, err)
+					continue
+				}
+				if !held {
+					logx.Errorf("interaction outbox event id=%d lease lost during publish", id)
+					return
+				}
+			}
+		}
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
 }
 
 func (d *Dispatcher) markSent(ctx context.Context, id int64) error {
