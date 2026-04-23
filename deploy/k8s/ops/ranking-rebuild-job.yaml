@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ranking-rebuild-config
+  namespace: freeexchanged
+data:
+  rebuild.yaml: |
+    DataSource: ${MYSQL_DSN}
+    BizRedis:
+      Host: redis-svc:6379
+      Type: node
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ranking-rebuild
+  namespace: freeexchanged
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: ranking-rebuild
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: ranking-rebuild
+        image: freeexchanged/ranking-rebuild:v0.1.0
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: freeexchanged-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /app/etc
+      volumes:
+      - name: config
+        configMap:
+          name: ranking-rebuild-config

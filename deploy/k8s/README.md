@@ -7,6 +7,7 @@ This directory contains the Kubernetes manifests for the FreeExchanged backend s
 - `namespace.yaml`: creates the `freeexchanged` namespace.
 - `infra/`: MySQL, Redis, Kafka, Jaeger, Prometheus, Grafana, and runtime secrets.
 - `app/`: gateway, RPC services, Go stream workers, the exchange-rate CronJob, and the database migration Job.
+- `ops/`: on-demand maintenance jobs such as ranking rebuild.
 - `deploy.sh`: applies resources in dependency order.
 
 ## Deployment Order
@@ -32,6 +33,7 @@ Build and push these images before running the manifests:
 - `freeexchanged/interaction-rpc:v0.1.0`
 - `freeexchanged/interaction-outbox:v0.1.0`
 - `freeexchanged/ranking-stream:v0.1.0`
+- `freeexchanged/ranking-rebuild:v0.1.0`
 - `freeexchanged/ranking-rpc:v0.1.0`
 - `freeexchanged/rate-rpc:v0.1.0`
 - `freeexchanged/watchlist-rpc:v0.1.0`
@@ -43,6 +45,20 @@ The CI workflow builds immutable `sha-<commit>` image tags and uploads rendered 
 ```bash
 IMAGE_TAG=sha-xxxxxxxxxxxx bash deploy/k8s/deploy.sh
 ```
+
+## Rebuild Ranking
+
+If Redis data is lost and `ranking:hot` needs to be rebuilt from MySQL state, run the maintenance Job:
+
+```bash
+kubectl delete job/ranking-rebuild -n freeexchanged --ignore-not-found
+kubectl apply -f deploy/k8s/ops/ranking-rebuild-job.yaml
+kubectl wait --for=condition=complete job/ranking-rebuild -n freeexchanged --timeout=180s
+kubectl logs job/ranking-rebuild -n freeexchanged
+```
+
+The rebuild job recalculates the hot ranking from published articles and `interaction_states`, then rewrites `ranking:hot` in Redis.
+If your environment uses immutable `sha-<commit>` images, apply the rendered manifest artifact from CI or replace the job image tag before running it.
 
 ## Secrets
 

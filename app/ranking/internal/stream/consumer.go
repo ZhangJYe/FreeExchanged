@@ -204,11 +204,11 @@ func (c *Consumer) handleInteractionMessage(body []byte) error {
 	delta := int64(0)
 	switch event.EventType {
 	case events.EventInteractionLike, "like":
-		delta = 10
+		delta = constant.RankingLikeScore
 	case events.EventInteractionUnlike, "unlike":
-		delta = -10
+		delta = -constant.RankingLikeScore
 	case events.EventInteractionRead, "read":
-		delta = 1
+		delta = constant.RankingReadScore
 	default:
 		return fmt.Errorf("unknown interaction event type: %s", event.EventType)
 	}

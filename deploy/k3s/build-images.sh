@@ -41,6 +41,7 @@ build_go_image freeexchanged/ranking-rpc:k3s ./app/ranking/cmd/rpc
 build_go_image freeexchanged/article-outbox:k3s ./app/article/cmd/outbox
 build_go_image freeexchanged/interaction-outbox:k3s ./app/interaction/cmd/outbox
 build_go_image freeexchanged/ranking-stream:k3s ./app/ranking/cmd/stream
+build_go_image freeexchanged/ranking-rebuild:k3s ./app/ranking/cmd/rebuild
 build_go_image freeexchanged/rate-job:k3s ./app/rate/cmd/job
 build_web_image freeexchanged/web:k3s /free/
 import_third_party_image mysql:8.0

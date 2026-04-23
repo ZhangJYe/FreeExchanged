@@ -45,7 +45,7 @@ jobs:
         run: |
           mkdir -p dist
           cp -R deploy/k8s dist/k8s
-          find dist/k8s/app -type f -name '*.yaml' -exec sed -i "s/:v0.1.0/:${IMAGE_TAG}/g" {} +
+          find dist/k8s -type f -name '*.yaml' -exec sed -i "s/:v0.1.0/:${IMAGE_TAG}/g" {} +
           tar -C dist -czf "k8s-manifests-${IMAGE_TAG}.tar.gz" k8s
       - uses: actions/upload-artifact@v4
         with:
@@ -78,6 +78,7 @@ jobs:
           article-outbox|./app/article/cmd/outbox
           interaction-outbox|./app/interaction/cmd/outbox
           ranking-stream|./app/ranking/cmd/stream
+          ranking-rebuild|./app/ranking/cmd/rebuild
           ranking-rpc|./app/ranking/cmd/rpc
           rate-rpc|./app/rate/cmd/rpc
           watchlist-rpc|./app/watchlist/cmd/rpc
