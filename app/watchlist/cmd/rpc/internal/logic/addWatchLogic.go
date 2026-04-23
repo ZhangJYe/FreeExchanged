@@ -3,12 +3,15 @@ package logic
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"freeexchanged/app/watchlist/cmd/rpc/internal/svc"
 	"freeexchanged/app/watchlist/cmd/rpc/watchlist"
 	"freeexchanged/app/watchlist/model"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type AddWatchLogic struct {
@@ -26,23 +29,32 @@ func NewAddWatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AddWatch
 }
 
 func (l *AddWatchLogic) AddWatch(in *watchlist.AddWatchReq) (*watchlist.AddWatchResp, error) {
-	// 1. 写 MySQL（UNIQUE KEY 保证幂等，重复插入忽略）
+	if in.UserId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "user is required")
+	}
+
+	pair, ok := normalizeCurrencyPair(in.CurrencyPair)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "currency_pair must be BASE/QUOTE")
+	}
+
 	_, err := l.svcCtx.WatchlistModel.Insert(l.ctx, &model.Watchlist{
 		UserId:       in.UserId,
-		CurrencyPair: in.CurrencyPair,
+		CurrencyPair: pair,
 	})
 	if err != nil {
-		// 重复键不报错（mysql: Error 1062），其他错误打日志但不阻断
-		logx.Errorf("[Watchlist] AddWatch insert err (may be duplicate): %v", err)
+		if !strings.Contains(err.Error(), "Duplicate entry") {
+			logx.Errorf("[Watchlist] AddWatch insert err: %v", err)
+			return nil, status.Error(codes.Internal, "add watch failed")
+		}
+		logx.Infof("[Watchlist] duplicate add ignored user=%d pair=%s", in.UserId, pair)
 	}
 
-	// 2. Write-Through: 同步写 Redis Set
 	key := fmt.Sprintf("watchlist:%d", in.UserId)
-	if _, err := l.svcCtx.Redis.Sadd(key, in.CurrencyPair); err != nil {
+	if _, err := l.svcCtx.Redis.Sadd(key, pair); err != nil {
 		logx.Errorf("[Watchlist] Redis SADD err: %v", err)
-		// Redis 失败不影响业务
 	}
 
-	logx.Infof("[Watchlist] user %d added %s", in.UserId, in.CurrencyPair)
+	logx.Infof("[Watchlist] user %d added %s", in.UserId, pair)
 	return &watchlist.AddWatchResp{}, nil
 }

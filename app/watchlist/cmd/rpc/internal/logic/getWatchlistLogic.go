@@ -3,13 +3,23 @@ package logic
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	rateClient "freeexchanged/app/rate/cmd/rpc/rateclient"
 	"freeexchanged/app/watchlist/cmd/rpc/internal/svc"
 	"freeexchanged/app/watchlist/cmd/rpc/watchlist"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+const (
+	maxRateFanoutConcurrency = 8
+	rateRPCTimeout           = 2 * time.Second
 )
 
 type GetWatchlistLogic struct {
@@ -27,70 +37,146 @@ func NewGetWatchlistLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetW
 }
 
 func (l *GetWatchlistLogic) GetWatchlist(in *watchlist.GetWatchlistReq) (*watchlist.GetWatchlistResp, error) {
-	key := fmt.Sprintf("watchlist:%d", in.UserId)
+	if in.UserId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "user is required")
+	}
 
-	// ① 优先读 Redis Set（缓存命中）
+	key := fmt.Sprintf("watchlist:%d", in.UserId)
 	pairs, err := l.svcCtx.Redis.Smembers(key)
 	if err != nil || len(pairs) == 0 {
-		// ② Cache Miss：降级查 MySQL，并回填 Redis
-		logx.Infof("[Watchlist] cache miss for user %d, fallback to DB", in.UserId)
+		if err != nil {
+			logx.Errorf("[Watchlist] cache read failed, fallback to db, user=%d, err=%v", in.UserId, err)
+		} else {
+			logx.Infof("[Watchlist] cache miss, fallback to db, user=%d", in.UserId)
+		}
+
 		records, dbErr := l.svcCtx.WatchlistModel.FindAllByUserId(l.ctx, in.UserId)
 		if dbErr != nil {
-			logx.Errorf("[Watchlist] FindAllByUserId err: %v", dbErr)
-			return &watchlist.GetWatchlistResp{Items: []*watchlist.WatchItem{}}, nil
+			logx.Errorf("[Watchlist] db query failed: %v", dbErr)
+			return &watchlist.GetWatchlistResp{}, nil
 		}
+
+		pairs = pairs[:0]
+		cacheValues := make([]any, 0, len(records))
 		for _, r := range records {
-			pairs = append(pairs, r.CurrencyPair)
-			l.svcCtx.Redis.Sadd(key, r.CurrencyPair) // 回填缓存
+			pair, ok := normalizeCurrencyPair(r.CurrencyPair)
+			if !ok {
+				logx.Errorf("[Watchlist] skip invalid stored pair user=%d pair=%q", in.UserId, r.CurrencyPair)
+				continue
+			}
+			pairs = append(pairs, pair)
+			cacheValues = append(cacheValues, pair)
+		}
+		if len(cacheValues) > 0 {
+			if _, err := l.svcCtx.Redis.Sadd(key, cacheValues...); err != nil {
+				logx.Errorf("[Watchlist] cache backfill failed user=%d err=%v", in.UserId, err)
+			}
 		}
 	}
 
+	pairs = normalizePairList(pairs)
 	if len(pairs) == 0 {
-		return &watchlist.GetWatchlistResp{Items: []*watchlist.WatchItem{}}, nil
+		return &watchlist.GetWatchlistResp{}, nil
 	}
 
-	// ③ goroutine fan-out：并发调 Rate RPC 获取实时汇率
 	type result struct {
-		item *watchlist.WatchItem
+		index int
+		item  *watchlist.WatchItem
 	}
-	ch := make(chan result, len(pairs))
 
-	for _, pair := range pairs {
-		go func(p string) {
-			from, to := parsePair(p)
-			rateResp, err := l.svcCtx.RateRpc.GetRate(l.ctx, &rateClient.GetRateReq{
-				From: from,
-				To:   to,
-			})
-			if err != nil {
-				logx.Errorf("[Watchlist] GetRate for %s failed: %v", p, err)
-				// 部分降级：返回汇率为 0，不影响其他货币对
-				ch <- result{item: &watchlist.WatchItem{CurrencyPair: p, Rate: 0}}
-				return
+	workerCount := len(pairs)
+	if workerCount > maxRateFanoutConcurrency {
+		workerCount = maxRateFanoutConcurrency
+	}
+
+	jobs := make(chan int)
+	results := make(chan result, len(pairs))
+
+	var wg sync.WaitGroup
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				pair := pairs[idx]
+				base, target := parsePair(pair)
+				item := &watchlist.WatchItem{CurrencyPair: pair}
+
+				callCtx, cancel := context.WithTimeout(l.ctx, rateRPCTimeout)
+				rateResp, err := l.svcCtx.RateRpc.GetRate(callCtx, &rateClient.GetRateReq{
+					From: base,
+					To:   target,
+				})
+				cancel()
+
+				if err != nil {
+					logx.Errorf("[Watchlist] GetRate failed pair=%s err=%v", pair, err)
+				} else {
+					item.Rate = rateResp.GetRate()
+					item.UpdatedAt = rateResp.GetUpdatedAt()
+				}
+				results <- result{index: idx, item: item}
 			}
-			ch <- result{item: &watchlist.WatchItem{
-				CurrencyPair: p,
-				Rate:         rateResp.Rate,
-				UpdatedAt:    rateResp.UpdatedAt,
-			}}
-		}(pair)
+		}()
 	}
 
-	// ④ 收集所有 goroutine 结果
-	items := make([]*watchlist.WatchItem, 0, len(pairs))
-	for range pairs {
-		r := <-ch
-		items = append(items, r.item)
+	go func() {
+		for idx := range pairs {
+			jobs <- idx
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	items := make([]*watchlist.WatchItem, len(pairs))
+	for r := range results {
+		items[r.index] = r.item
 	}
 
 	return &watchlist.GetWatchlistResp{Items: items}, nil
 }
 
-// parsePair 解析 "USD/CNY" → ("USD", "CNY")
 func parsePair(pair string) (string, string) {
-	parts := strings.SplitN(pair, "/", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
+	normalized, ok := normalizeCurrencyPair(pair)
+	if !ok {
+		return pair, ""
 	}
-	return pair, ""
+
+	parts := strings.Split(normalized, "/")
+	return parts[0], parts[1]
+}
+
+func normalizeCurrencyPair(pair string) (string, bool) {
+	parts := strings.Split(strings.ToUpper(strings.TrimSpace(pair)), "/")
+	if len(parts) != 2 {
+		return "", false
+	}
+
+	base := strings.TrimSpace(parts[0])
+	target := strings.TrimSpace(parts[1])
+	if base == "" || target == "" || base == target {
+		return "", false
+	}
+
+	return base + "/" + target, true
+}
+
+func normalizePairList(pairs []string) []string {
+	seen := make(map[string]struct{}, len(pairs))
+	normalized := make([]string, 0, len(pairs))
+	for _, pair := range pairs {
+		pair, ok := normalizeCurrencyPair(pair)
+		if !ok {
+			continue
+		}
+		if _, exists := seen[pair]; exists {
+			continue
+		}
+		seen[pair] = struct{}{}
+		normalized = append(normalized, pair)
+	}
+
+	sort.Strings(normalized)
+	return normalized
 }

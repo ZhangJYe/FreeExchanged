@@ -27,18 +27,25 @@ func NewRemoveWatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Remov
 }
 
 func (l *RemoveWatchLogic) RemoveWatch(in *watchlist.RemoveWatchReq) (*watchlist.RemoveWatchResp, error) {
-	// 1. 删除 MySQL
-	if err := l.svcCtx.WatchlistModel.DeleteByUserIdAndPair(l.ctx, in.UserId, in.CurrencyPair); err != nil {
+	if in.UserId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "user is required")
+	}
+
+	pair, ok := normalizeCurrencyPair(in.CurrencyPair)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "currency_pair must be BASE/QUOTE")
+	}
+
+	if err := l.svcCtx.WatchlistModel.DeleteByUserIdAndPair(l.ctx, in.UserId, pair); err != nil {
 		logx.Errorf("[Watchlist] RemoveWatch DB err: %v", err)
 		return nil, status.Error(codes.Internal, "db delete failed")
 	}
 
-	// 2. Write-Through: 同步删除 Redis Set 成员
 	key := fmt.Sprintf("watchlist:%d", in.UserId)
-	if _, err := l.svcCtx.Redis.Srem(key, in.CurrencyPair); err != nil {
+	if _, err := l.svcCtx.Redis.Srem(key, pair); err != nil {
 		logx.Errorf("[Watchlist] Redis SREM err: %v", err)
 	}
 
-	logx.Infof("[Watchlist] user %d removed %s", in.UserId, in.CurrencyPair)
+	logx.Infof("[Watchlist] user %d removed %s", in.UserId, pair)
 	return &watchlist.RemoveWatchResp{}, nil
 }
