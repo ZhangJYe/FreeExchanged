@@ -146,8 +146,6 @@ kind: Ingress
 metadata:
   name: gateway-ingress
   namespace: freeexchanged
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
   - http:
@@ -166,3 +164,10 @@ spec:
             name: gateway-svc
             port:
               number: 8888
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-svc
+            port:
+              number: 80

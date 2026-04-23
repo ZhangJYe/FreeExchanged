@@ -34,12 +34,13 @@ Build and push these images before running the manifests:
 - `freeexchanged/rate-rpc:latest`
 - `freeexchanged/watchlist-rpc:latest`
 - `freeexchanged/rate-job:latest`
+- `freeexchanged/web:latest`
 
 For production, replace `latest` with immutable version tags.
 
 ## Secrets
 
-`infra/secrets.yaml` is suitable for local or demo clusters only. Before production deployment, replace these values or manage them with External Secrets, Sealed Secrets, SOPS, or the cloud provider secret manager.
+Runtime secrets are not committed. Before running `deploy.sh`, export the required values or create `freeexchanged-secrets` with your own secret manager and run with `SKIP_SECRET_SYNC=1`.
 
 Required keys:
 
@@ -48,6 +49,16 @@ Required keys:
 - `MYSQL_DSN`
 - `PASETO_ACCESS_SECRET`
 - `GRAFANA_ADMIN_PASSWORD`
+
+Example:
+
+```bash
+export MYSQL_ROOT_PASSWORD='...'
+export MYSQL_DATABASE='freeexchanged'
+export MYSQL_DSN='root:...@tcp(mysql-svc:3306)/freeexchanged?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai'
+export PASETO_ACCESS_SECRET='base64-encoded-32-byte-key'
+export GRAFANA_ADMIN_PASSWORD='...'
+```
 
 ## Deploy
 
@@ -59,6 +70,13 @@ If you only want to apply a single phase:
 
 ```bash
 kubectl apply -f deploy/k8s/namespace.yaml
+kubectl create secret generic freeexchanged-secrets -n freeexchanged \
+  --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+  --from-literal=MYSQL_DATABASE="$MYSQL_DATABASE" \
+  --from-literal=MYSQL_DSN="$MYSQL_DSN" \
+  --from-literal=PASETO_ACCESS_SECRET="$PASETO_ACCESS_SECRET" \
+  --from-literal=GRAFANA_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f deploy/k8s/infra/
 kubectl apply -f deploy/k8s/app/db-migration-job.yaml
 kubectl apply -f deploy/k8s/app/

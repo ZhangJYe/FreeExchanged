@@ -1,0 +1,16 @@
+@freeRoot path /free
+redir @freeRoot /free/ 308
+
+handle /free/v1* {
+    uri replace /free ""
+    reverse_proxy 127.0.0.1:30888
+}
+
+handle /free/ws* {
+    uri replace /free ""
+    reverse_proxy 127.0.0.1:30888
+}
+
+handle_path /free/* {
+    reverse_proxy 127.0.0.1:30080
+}

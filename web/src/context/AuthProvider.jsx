@@ -8,12 +8,26 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token') || '');
     const [loading, setLoading] = useState(true);
 
-    const logout = useCallback(() => {
+    const clearSession = useCallback(() => {
         localStorage.removeItem('token');
         setToken('');
         setUser(null);
         wsClient.disconnect();
     }, []);
+
+    const logout = useCallback(async () => {
+        try {
+            if (localStorage.getItem('token')) {
+                await api.post('/user/logout');
+            }
+        } catch (e) {
+            if (e.response?.status !== 401) {
+                console.error('Logout revoke failed', e);
+            }
+        } finally {
+            clearSession();
+        }
+    }, [clearSession]);
 
     const fetchUser = useCallback(async (activeToken) => {
         try {
@@ -22,11 +36,11 @@ export const AuthProvider = ({ children }) => {
             wsClient.connect(activeToken);
         } catch (e) {
             console.error('Fetch user failed', e);
-            logout();
+            clearSession();
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, [clearSession]);
 
     useEffect(() => {
         if (token) {

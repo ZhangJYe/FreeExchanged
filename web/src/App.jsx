@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import { routerBasename } from './config/base';
 import './App.css';
 
 const PrivateRoute = () => {
@@ -15,7 +16,7 @@ const PrivateRoute = () => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router basename={routerBasename}>
         <div className="app-shell">
           <Routes>
             <Route path="/login" element={<Login />} />

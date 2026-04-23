@@ -3,9 +3,49 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="freeexchanged"
+SECRET_NAME="freeexchanged-secrets"
+REQUIRED_SECRET_VARS=(
+  MYSQL_ROOT_PASSWORD
+  MYSQL_DATABASE
+  MYSQL_DSN
+  PASETO_ACCESS_SECRET
+  GRAFANA_ADMIN_PASSWORD
+)
+
+sync_secret() {
+  if [[ "${SKIP_SECRET_SYNC:-}" == "1" ]]; then
+    kubectl get secret "$SECRET_NAME" -n "$NAMESPACE" >/dev/null
+    return
+  fi
+
+  local missing=()
+  for name in "${REQUIRED_SECRET_VARS[@]}"; do
+    if [[ -z "${!name:-}" ]]; then
+      missing+=("$name")
+    fi
+  done
+
+  if (( ${#missing[@]} > 0 )); then
+    echo "Missing required secret env vars: ${missing[*]}" >&2
+    echo "Export them first, or set SKIP_SECRET_SYNC=1 if $SECRET_NAME is managed outside this script." >&2
+    exit 1
+  fi
+
+  kubectl create secret generic "$SECRET_NAME" \
+    -n "$NAMESPACE" \
+    --from-literal=MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+    --from-literal=MYSQL_DATABASE="$MYSQL_DATABASE" \
+    --from-literal=MYSQL_DSN="$MYSQL_DSN" \
+    --from-literal=PASETO_ACCESS_SECRET="$PASETO_ACCESS_SECRET" \
+    --from-literal=GRAFANA_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD" \
+    --dry-run=client -o yaml | kubectl apply -f -
+}
 
 echo "==> [1/4] Apply namespace"
 kubectl apply -f "$SCRIPT_DIR/namespace.yaml"
+
+echo "==> Sync runtime secrets"
+sync_secret
 
 echo "==> [2/4] Apply infrastructure"
 kubectl delete job/kafka-topic-init -n "$NAMESPACE" --ignore-not-found
@@ -33,6 +73,7 @@ kubectl apply -f "$SCRIPT_DIR/app/ranking-stream.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/ranking-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/article-rpc.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/watchlist-rpc.yaml"
+kubectl apply -f "$SCRIPT_DIR/app/web.yaml"
 kubectl apply -f "$SCRIPT_DIR/app/gateway.yaml"
 
 echo "==> Waiting for application readiness"
@@ -45,10 +86,12 @@ kubectl rollout status deployment/ranking-stream -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/ranking-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/article-rpc -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/watchlist-rpc -n "$NAMESPACE" --timeout=120s
+kubectl rollout status deployment/web -n "$NAMESPACE" --timeout=120s
 kubectl rollout status deployment/gateway -n "$NAMESPACE" --timeout=120s
 
 echo ""
 echo "Deployment completed."
+echo "Web ingress:       route your domain to the ingress controller for /, /v1, and /ws"
 echo "Gateway ClusterIP: $(kubectl get svc gateway-svc -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}'):8888"
 echo "Grafana:           kubectl port-forward svc/grafana-svc 3000:3000 -n $NAMESPACE"
 echo "Jaeger UI:         kubectl port-forward svc/jaeger-svc 16686:16686 -n $NAMESPACE"

@@ -1,4 +1,6 @@
 
+import { appPath } from '../config/base';
+
 class WsClient {
     constructor() {
         this.socket = null;
@@ -15,7 +17,7 @@ class WsClient {
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/ws`;
+        const wsUrl = `${protocol}//${host}${appPath('/ws')}`;
 
         console.log('Connecting WS');
 

@@ -1,0 +1,165 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../k8s/namespace.yaml
+  - ../../k8s/infra/mysql.yaml
+  - ../../k8s/infra/redis.yaml
+  - ../../k8s/infra/kafka.yaml
+  - ../../k8s/infra/kafka-topics-job.yaml
+  - ../../k8s/infra/jaeger.yaml
+  - ../../k8s/app/db-migration-job.yaml
+  - ../../k8s/app/user-rpc.yaml
+  - ../../k8s/app/interaction-rpc.yaml
+  - ../../k8s/app/article-rpc.yaml
+  - ../../k8s/app/rate-rpc.yaml
+  - ../../k8s/app/watchlist-rpc.yaml
+  - ../../k8s/app/article-outbox.yaml
+  - ../../k8s/app/interaction-outbox.yaml
+  - ../../k8s/app/ranking-stream.yaml
+  - ../../k8s/app/ranking-rpc.yaml
+  - ../../k8s/app/rate-job.yaml
+  - ../../k8s/app/gateway.yaml
+  - ../../k8s/app/web.yaml
+  - gateway-edge-svc.yaml
+  - web-edge-svc.yaml
+
+patchesStrategicMerge:
+  - delete-gateway-ingress.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: user-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: interaction-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: article-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: rate-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: watchlist-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: ranking-rpc
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: article-outbox
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: interaction-outbox
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: StatefulSet
+      name: kafka
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: KAFKA_HEAP_OPTS
+          value: -Xms256m -Xmx256m
+  - target:
+      kind: StatefulSet
+      name: kafka
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 384Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 768Mi
+  - target:
+      kind: StatefulSet
+      name: mysql
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 384Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 768Mi
+  - target:
+      kind: Deployment
+      name: jaeger
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 128Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 384Mi
+
+images:
+  - name: freeexchanged/gateway
+    newTag: k3s
+  - name: freeexchanged/user-rpc
+    newTag: k3s
+  - name: freeexchanged/interaction-rpc
+    newTag: k3s
+  - name: freeexchanged/article-rpc
+    newTag: k3s
+  - name: freeexchanged/rate-rpc
+    newTag: k3s
+  - name: freeexchanged/watchlist-rpc
+    newTag: k3s
+  - name: freeexchanged/ranking-rpc
+    newTag: k3s
+  - name: freeexchanged/article-outbox
+    newTag: k3s
+  - name: freeexchanged/interaction-outbox
+    newTag: k3s
+  - name: freeexchanged/ranking-stream
+    newTag: k3s
+  - name: freeexchanged/rate-job
+    newTag: k3s
+  - name: freeexchanged/web
+    newTag: k3s
