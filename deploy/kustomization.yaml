@@ -2,32 +2,30 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../../k8s/namespace.yaml
-  - ../../k8s/infra/mysql.yaml
-  - ../../k8s/infra/redis.yaml
-  - ../../k8s/infra/kafka.yaml
-  - ../../k8s/infra/kafka-topics-job.yaml
-  - ../../k8s/infra/jaeger.yaml
-  - ../../k8s/app/db-migration-job.yaml
-  - ../../k8s/app/user-rpc.yaml
-  - ../../k8s/app/interaction-rpc.yaml
-  - ../../k8s/app/article-rpc.yaml
-  - ../../k8s/app/rate-rpc.yaml
-  - ../../k8s/app/watchlist-rpc.yaml
-  - ../../k8s/app/article-outbox.yaml
-  - ../../k8s/app/interaction-outbox.yaml
-  - ../../k8s/app/ranking-stream.yaml
-  - ../../k8s/app/ranking-rpc.yaml
-  - ../../k8s/app/rate-job.yaml
-  - ../../k8s/app/gateway.yaml
-  - ../../k8s/app/web.yaml
-  - gateway-edge-svc.yaml
-  - web-edge-svc.yaml
-
-patchesStrategicMerge:
-  - delete-gateway-ingress.yaml
+  - k8s/namespace.yaml
+  - k8s/infra/mysql.yaml
+  - k8s/infra/redis.yaml
+  - k8s/infra/kafka.yaml
+  - k8s/infra/kafka-topics-job.yaml
+  - k8s/infra/jaeger.yaml
+  - k8s/app/db-migration-job.yaml
+  - k8s/app/user-rpc.yaml
+  - k8s/app/interaction-rpc.yaml
+  - k8s/app/article-rpc.yaml
+  - k8s/app/rate-rpc.yaml
+  - k8s/app/watchlist-rpc.yaml
+  - k8s/app/article-outbox.yaml
+  - k8s/app/interaction-outbox.yaml
+  - k8s/app/ranking-stream.yaml
+  - k8s/app/ranking-rpc.yaml
+  - k8s/app/rate-job.yaml
+  - k8s/app/gateway.yaml
+  - k8s/app/web.yaml
+  - k3s/lite/gateway-edge-svc.yaml
+  - k3s/lite/web-edge-svc.yaml
 
 patches:
+  - path: k3s/lite/delete-gateway-ingress.yaml
   - target:
       kind: Deployment
       name: gateway

@@ -66,6 +66,13 @@ export GRAFANA_ADMIN_PASSWORD='...'
 bash deploy/k8s/deploy.sh
 ```
 
+For the K3s lite overlay, use the kustomization at `deploy/`:
+
+```bash
+kubectl kustomize deploy
+kubectl apply -k deploy
+```
+
 If you only want to apply a single phase:
 
 ```bash

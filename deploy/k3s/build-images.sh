@@ -19,7 +19,8 @@ build_go_image() {
 
 build_web_image() {
   local image="$1"
-  docker build -t "$image" "$ROOT_DIR/web"
+  local app_base="${2:-/}"
+  docker build --build-arg VITE_APP_BASE="$app_base" -t "$image" "$ROOT_DIR/web"
   docker save "$image" | k3s ctr images import -
   docker rmi "$image" >/dev/null
 }
@@ -41,7 +42,7 @@ build_go_image freeexchanged/article-outbox:k3s ./app/article/cmd/outbox
 build_go_image freeexchanged/interaction-outbox:k3s ./app/interaction/cmd/outbox
 build_go_image freeexchanged/ranking-stream:k3s ./app/ranking/cmd/stream
 build_go_image freeexchanged/rate-job:k3s ./app/rate/cmd/job
-build_web_image freeexchanged/web:k3s
+build_web_image freeexchanged/web:k3s /free/
 import_third_party_image mysql:8.0
 import_third_party_image redis:alpine
 import_third_party_image bitnami/kafka:3.7

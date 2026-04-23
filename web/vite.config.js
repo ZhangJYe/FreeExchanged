@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import process from 'node:process'
 
-const appBase = process.env.VITE_APP_BASE || '/free/'
+const appBase = process.env.VITE_APP_BASE || '/'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -23,11 +24,13 @@ export default defineConfig({
         target: 'http://localhost:8888',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path.replace(/^\/free/, ''),
       },
       '/free/ws': {
         target: 'ws://localhost:8888',
         ws: true,
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/free/, ''),
       }
     }
   }
