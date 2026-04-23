@@ -10,6 +10,8 @@ import (
 	"freeexchanged/pkg/eventstream"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -25,10 +27,34 @@ type Config struct {
 	PollIntervalSeconds int `json:",default=2"`
 	BatchSize           int `json:",default=50"`
 	ClaimTimeoutSeconds int `json:",default=30"`
-	Kafka               struct {
+	Prometheus          struct {
+		Host string `json:",default=0.0.0.0"`
+		Port int    `json:",default=9099"`
+		Path string `json:",default=/metrics"`
+	}
+	Kafka struct {
 		Brokers []string
 	}
 }
+
+var (
+	articleOutboxClaimBatchesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "freeexchanged_article_outbox_claim_batches_total",
+		Help: "Total number of claim batches executed by the article outbox worker.",
+	})
+	articleOutboxClaimedEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "freeexchanged_article_outbox_claimed_events_total",
+		Help: "Total number of article outbox events claimed for processing.",
+	})
+	articleOutboxPublishTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "freeexchanged_article_outbox_publish_total",
+		Help: "Total number of article outbox publish attempts by result.",
+	}, []string{"result"})
+	articleOutboxLeaseEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "freeexchanged_article_outbox_lease_events_total",
+		Help: "Total number of article outbox lease events by result.",
+	}, []string{"result"})
+)
 
 type Dispatcher struct {
 	conn      sqlx.SqlConn
@@ -111,10 +137,12 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 
 		held, err := d.extendLease(ctx, event.ID)
 		if err != nil {
+			articleOutboxLeaseEventsTotal.WithLabelValues("extend_error").Inc()
 			logx.Errorf("extend article outbox event id=%d lease failed: %v", event.ID, err)
 			continue
 		}
 		if !held {
+			articleOutboxLeaseEventsTotal.WithLabelValues("lost_before_publish").Inc()
 			logx.Errorf("skip article outbox event id=%d because lease was lost", event.ID)
 			continue
 		}
@@ -122,6 +150,7 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 		stopLeaseHeartbeat := d.startLeaseHeartbeat(ctx, event.ID)
 		if err := d.publish(ctx, event); err != nil {
 			stopLeaseHeartbeat()
+			articleOutboxPublishTotal.WithLabelValues("error").Inc()
 			logx.Errorf("publish article outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
 			if markErr := d.markFailed(ctx, event.ID, err); markErr != nil {
 				logx.Errorf("mark article outbox event id=%d failed: %v", event.ID, markErr)
@@ -129,6 +158,7 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 			continue
 		}
 		stopLeaseHeartbeat()
+		articleOutboxPublishTotal.WithLabelValues("success").Inc()
 
 		if err := d.markSent(ctx, event.ID); err != nil {
 			logx.Errorf("mark article outbox event id=%d sent failed: %v", event.ID, err)
@@ -159,6 +189,10 @@ FOR UPDATE SKIP LOCKED`, statusPending, statusProcessing, d.batchSize); err != n
 		_, err := session.ExecCtx(ctx, query, args...)
 		return err
 	})
+	if err == nil && len(pending) > 0 {
+		articleOutboxClaimBatchesTotal.Inc()
+		articleOutboxClaimedEventsTotal.Add(float64(len(pending)))
+	}
 	return pending, err
 }
 
@@ -223,10 +257,12 @@ func (d *Dispatcher) startLeaseHeartbeat(ctx context.Context, id int64) func() {
 			case <-ticker.C:
 				held, err := d.extendLease(heartbeatCtx, id)
 				if err != nil {
+					articleOutboxLeaseEventsTotal.WithLabelValues("heartbeat_error").Inc()
 					logx.Errorf("extend article outbox event id=%d heartbeat failed: %v", id, err)
 					continue
 				}
 				if !held {
+					articleOutboxLeaseEventsTotal.WithLabelValues("lost_during_publish").Inc()
 					logx.Errorf("article outbox event id=%d lease lost during publish", id)
 					return
 				}

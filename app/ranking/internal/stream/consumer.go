@@ -13,6 +13,8 @@ import (
 	"freeexchanged/pkg/events"
 	"freeexchanged/pkg/eventstream"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/segmentio/kafka-go"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -35,6 +37,18 @@ if ARGV[2] ~= "" then
 end
 return 1
 `)
+
+var (
+	rankingStreamMessagesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "freeexchanged_ranking_stream_messages_total",
+		Help: "Total number of ranking stream messages by source and result.",
+	}, []string{"source", "result"})
+	rankingStreamMessageDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "freeexchanged_ranking_stream_message_duration_seconds",
+		Help:    "Time spent processing ranking stream messages by source and result.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"source", "result"})
+)
 
 type Consumer struct {
 	ctx                 context.Context
@@ -91,35 +105,52 @@ func (c *Consumer) consumeLoop(name string, consumer *eventstream.Consumer, hand
 }
 
 func (c *Consumer) processMessage(name string, consumer *eventstream.Consumer, msg kafka.Message, handler func([]byte) error) {
+	start := time.Now()
+	result := "success"
+	defer func() {
+		rankingStreamMessagesTotal.WithLabelValues(name, result).Inc()
+		rankingStreamMessageDuration.WithLabelValues(name, result).Observe(time.Since(start).Seconds())
+	}()
+
 	for attempt := 1; ; attempt++ {
 		if err := handler(msg.Value); err != nil {
 			if c.ctx.Err() != nil {
+				result = "canceled"
 				return
 			}
 			logx.Errorf("failed to process %s Kafka event topic=%s partition=%d offset=%d: %v", name, msg.Topic, msg.Partition, msg.Offset, err)
 			if attempt >= maxProcessingAttempts {
 				if dlqErr := c.publishDLQ(name, msg, err, attempt); dlqErr != nil {
+					result = "dlq_publish_error"
 					logx.Errorf("failed to publish %s Kafka event to DLQ topic=%s partition=%d offset=%d: %v", name, msg.Topic, msg.Partition, msg.Offset, dlqErr)
 					time.Sleep(time.Second)
 					continue
 				}
+				result = "dlq"
 				logx.Errorf("sent %s Kafka event to DLQ after %d attempts topic=%s partition=%d offset=%d", name, attempt, msg.Topic, msg.Partition, msg.Offset)
 				break
 			}
+			result = "retry"
 			time.Sleep(time.Second)
 			continue
 		}
+		result = "success"
 		break
 	}
 
 	for {
 		if err := consumer.CommitMessages(c.ctx, msg); err != nil {
 			if c.ctx.Err() != nil {
+				result = "commit_canceled"
 				return
 			}
+			result = "commit_retry"
 			logx.Errorf("failed to commit %s Kafka event topic=%s partition=%d offset=%d: %v", name, msg.Topic, msg.Partition, msg.Offset, err)
 			time.Sleep(time.Second)
 			continue
+		}
+		if result == "retry" {
+			result = "success_after_retry"
 		}
 		return
 	}

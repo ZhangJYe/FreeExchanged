@@ -10,6 +10,8 @@ import (
 	"freeexchanged/pkg/eventstream"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -25,10 +27,34 @@ type Config struct {
 	PollIntervalSeconds int `json:",default=2"`
 	BatchSize           int `json:",default=100"`
 	ClaimTimeoutSeconds int `json:",default=30"`
-	Kafka               struct {
+	Prometheus          struct {
+		Host string `json:",default=0.0.0.0"`
+		Port int    `json:",default=9100"`
+		Path string `json:",default=/metrics"`
+	}
+	Kafka struct {
 		Brokers []string
 	}
 }
+
+var (
+	interactionOutboxClaimBatchesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "freeexchanged_interaction_outbox_claim_batches_total",
+		Help: "Total number of claim batches executed by the interaction outbox worker.",
+	})
+	interactionOutboxClaimedEventsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "freeexchanged_interaction_outbox_claimed_events_total",
+		Help: "Total number of interaction outbox events claimed for processing.",
+	})
+	interactionOutboxPublishTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "freeexchanged_interaction_outbox_publish_total",
+		Help: "Total number of interaction outbox publish attempts by result.",
+	}, []string{"result"})
+	interactionOutboxLeaseEventsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "freeexchanged_interaction_outbox_lease_events_total",
+		Help: "Total number of interaction outbox lease events by result.",
+	}, []string{"result"})
+)
 
 type Dispatcher struct {
 	conn      sqlx.SqlConn
@@ -112,10 +138,12 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 
 		held, err := d.extendLease(ctx, event.ID)
 		if err != nil {
+			interactionOutboxLeaseEventsTotal.WithLabelValues("extend_error").Inc()
 			logx.Errorf("extend interaction outbox event id=%d lease failed: %v", event.ID, err)
 			continue
 		}
 		if !held {
+			interactionOutboxLeaseEventsTotal.WithLabelValues("lost_before_publish").Inc()
 			logx.Errorf("skip interaction outbox event id=%d because lease was lost", event.ID)
 			continue
 		}
@@ -123,6 +151,7 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 		stopLeaseHeartbeat := d.startLeaseHeartbeat(ctx, event.ID)
 		if err := d.publish(ctx, event); err != nil {
 			stopLeaseHeartbeat()
+			interactionOutboxPublishTotal.WithLabelValues("error").Inc()
 			logx.Errorf("publish interaction outbox event id=%d topic=%s failed: %v", event.ID, event.Topic, err)
 			if markErr := d.markFailed(ctx, event.ID, err); markErr != nil {
 				logx.Errorf("mark interaction outbox event id=%d failed: %v", event.ID, markErr)
@@ -130,6 +159,7 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 			continue
 		}
 		stopLeaseHeartbeat()
+		interactionOutboxPublishTotal.WithLabelValues("success").Inc()
 
 		if err := d.markSent(ctx, event.ID); err != nil {
 			logx.Errorf("mark interaction outbox event id=%d sent failed: %v", event.ID, err)
@@ -160,6 +190,10 @@ FOR UPDATE SKIP LOCKED`, statusPending, statusProcessing, d.batchSize); err != n
 		_, err := session.ExecCtx(ctx, query, args...)
 		return err
 	})
+	if err == nil && len(pending) > 0 {
+		interactionOutboxClaimBatchesTotal.Inc()
+		interactionOutboxClaimedEventsTotal.Add(float64(len(pending)))
+	}
 	return pending, err
 }
 
@@ -224,10 +258,12 @@ func (d *Dispatcher) startLeaseHeartbeat(ctx context.Context, id int64) func() {
 			case <-ticker.C:
 				held, err := d.extendLease(heartbeatCtx, id)
 				if err != nil {
+					interactionOutboxLeaseEventsTotal.WithLabelValues("heartbeat_error").Inc()
 					logx.Errorf("extend interaction outbox event id=%d heartbeat failed: %v", id, err)
 					continue
 				}
 				if !held {
+					interactionOutboxLeaseEventsTotal.WithLabelValues("lost_during_publish").Inc()
 					logx.Errorf("interaction outbox event id=%d lease lost during publish", id)
 					return
 				}

@@ -128,6 +128,7 @@ kubectl get cronjob -n freeexchanged
 kubectl logs job/kafka-topic-init -n freeexchanged
 kubectl logs job/db-migration -n freeexchanged
 kubectl rollout status deployment/gateway -n freeexchanged
+kubectl port-forward svc/prometheus-svc 9090:9090 -n freeexchanged
 ```
 
 Local access:
@@ -136,7 +137,10 @@ Local access:
 kubectl port-forward svc/gateway-svc 8888:8888 -n freeexchanged
 kubectl port-forward svc/grafana-svc 3000:3000 -n freeexchanged
 kubectl port-forward svc/jaeger-svc 16686:16686 -n freeexchanged
+kubectl port-forward svc/prometheus-svc 9090:9090 -n freeexchanged
 ```
+
+Prometheus scrapes the RPC services plus `ranking-stream`, `article-outbox`, and `interaction-outbox`, so you can inspect worker throughput and failure counters directly in the Prometheus UI.
 
 ## Production Hardening Backlog
 

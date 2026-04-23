@@ -2,6 +2,10 @@ DataSource: root:root@tcp(127.0.0.1:3307)/freeexchanged?charset=utf8mb4&parseTim
 PollIntervalSeconds: 2
 BatchSize: 100
 ClaimTimeoutSeconds: 30
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9100
+  Path: /metrics
 
 Kafka:
   Brokers:

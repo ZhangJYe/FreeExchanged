@@ -1,10 +1,15 @@
 package config
 
-import "github.com/zeromicro/go-zero/core/stores/redis"
+import (
+	"freeexchanged/pkg/metricsserver"
+
+	"github.com/zeromicro/go-zero/core/stores/redis"
+)
 
 type Config struct {
-	BizRedis redis.RedisConf
-	Kafka    struct {
+	BizRedis   redis.RedisConf
+	Prometheus metricsserver.Config
+	Kafka      struct {
 		Brokers []string
 	}
 }

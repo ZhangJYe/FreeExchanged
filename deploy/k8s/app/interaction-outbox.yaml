@@ -10,6 +10,11 @@ data:
     BatchSize: 100
     ClaimTimeoutSeconds: 30
 
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9100
+      Path: /metrics
+
     Kafka:
       Brokers:
         - kafka-svc:9092
@@ -37,6 +42,9 @@ spec:
         envFrom:
         - secretRef:
             name: freeexchanged-secrets
+        ports:
+        - name: metrics
+          containerPort: 9100
         resources:
           requests:
             cpu: 100m
@@ -51,3 +59,16 @@ spec:
       - name: config
         configMap:
           name: interaction-outbox-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: interaction-outbox-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: interaction-outbox
+  ports:
+  - name: metrics
+    port: 9100
+    targetPort: 9100

@@ -9,6 +9,11 @@ data:
       Host: redis-svc:6379
       Type: node
 
+    Prometheus:
+      Host: 0.0.0.0
+      Port: 9098
+      Path: /metrics
+
     Kafka:
       Brokers:
         - kafka-svc:9092
@@ -36,6 +41,9 @@ spec:
         envFrom:
         - secretRef:
             name: freeexchanged-secrets
+        ports:
+        - name: metrics
+          containerPort: 9098
         resources:
           requests:
             cpu: 100m
@@ -50,3 +58,16 @@ spec:
       - name: config
         configMap:
           name: ranking-stream-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ranking-stream-svc
+  namespace: freeexchanged
+spec:
+  selector:
+    app: ranking-stream
+  ports:
+  - name: metrics
+    port: 9098
+    targetPort: 9098
