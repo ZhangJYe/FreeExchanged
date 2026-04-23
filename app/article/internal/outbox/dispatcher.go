@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"freeexchanged/pkg/eventstream"
@@ -136,25 +137,43 @@ func (d *Dispatcher) dispatchOnce(ctx context.Context) {
 }
 
 func (d *Dispatcher) claimPending(ctx context.Context) ([]Event, error) {
-	if _, err := d.conn.ExecCtx(ctx, `
-UPDATE article_outbox_events
-SET status = ?, locked_by = ?, locked_until = ?, update_time = NOW()
+	var pending []Event
+	err := d.conn.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
+		txConn := sqlx.NewSqlConnFromSession(session)
+		if err := txConn.QueryRowsCtx(ctx, &pending, `
+SELECT id, topic, event_key, CAST(payload AS CHAR) AS payload
+FROM article_outbox_events
 WHERE
   (status = ? AND next_retry_at <= NOW())
   OR (status = ? AND locked_until < NOW())
 ORDER BY id
-LIMIT ?`, statusProcessing, d.workerID, time.Now().Add(d.claimTTL), statusPending, statusProcessing, d.batchSize); err != nil {
-		return nil, err
+LIMIT ?
+FOR UPDATE SKIP LOCKED`, statusPending, statusProcessing, d.batchSize); err != nil {
+			return err
+		}
+		if len(pending) == 0 {
+			return nil
+		}
+
+		query, args := d.buildClaimQuery("article_outbox_events", pending, time.Now().Add(d.claimTTL))
+		_, err := session.ExecCtx(ctx, query, args...)
+		return err
+	})
+	return pending, err
+}
+
+func (d *Dispatcher) buildClaimQuery(table string, events []Event, lockedUntil time.Time) (string, []any) {
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(events)), ",")
+	args := make([]any, 0, len(events)+3)
+	args = append(args, statusProcessing, d.workerID, lockedUntil)
+	for _, event := range events {
+		args = append(args, event.ID)
 	}
 
-	var pending []Event
-	err := d.conn.QueryRowsCtx(ctx, &pending, `
-SELECT id, topic, event_key, CAST(payload AS CHAR) AS payload
-FROM article_outbox_events
-WHERE status = ? AND locked_by = ?
-ORDER BY id
-LIMIT ?`, statusProcessing, d.workerID, d.batchSize)
-	return pending, err
+	return fmt.Sprintf(`
+UPDATE %s
+SET status = ?, locked_by = ?, locked_until = ?, update_time = NOW()
+WHERE id IN (%s)`, table, placeholders), args
 }
 
 func (d *Dispatcher) publish(ctx context.Context, event Event) error {
